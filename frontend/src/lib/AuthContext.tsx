@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useIdleTimeout } from '@/hooks/useIdleTimeout';
 import { User, UserSchema, AuthResponseSchema, MFARequiredSchema } from '@/lib/schemas';
 import { getSecurityPreferences, apiPost } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface AuthContextType {
@@ -13,6 +14,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string, totp_code?: string) => Promise<{ success: boolean; error?: string; mfa_required?: boolean }>;
   signup: (email: string, password: string, displayName: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => void;
   refreshUser: () => void;
 }
@@ -44,6 +46,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
+  // Listen for Supabase Auth changes (Google Login)
+  useEffect(() => {
+    // Only run this effect in browser
+    if (typeof window === 'undefined') return;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Only act on SIGNED_IN if we don't already have a backend token
+      // OR if the user just came back from OAuth redirect
+      if (event === 'SIGNED_IN' && session) {
+        // We have a Supabase session. Now exchange it for a Backend Session.
+        // Check if we already have a valid backend token (optimization)
+        const currentToken = localStorage.getItem('access_token');
+        if (currentToken) return; // Assume we are good if we have one. 
+        // Actually, for Google login, we typically land here without a backend token yet.
+
+        try {
+           setIsLoading(true);
+           const json = await apiPost('/auth/google', { access_token: session.access_token });
+           
+           if (json.status === 'success' && json.data) {
+                const result = AuthResponseSchema.safeParse(json.data);
+                if (result.success) {
+                    const { user, access_token, refresh_token } = result.data;
+                    setUser(user);
+                    setToken(access_token);
+                    localStorage.setItem('access_token', access_token);
+                    localStorage.setItem('refresh_token', refresh_token);
+                    localStorage.setItem('user', JSON.stringify(user));
+                }
+           }
+        } catch (e) {
+            console.error("Google Exchange Failed", e);
+            // Optional: Show error toast
+        } finally {
+            setIsLoading(false);
+        }
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   // Load timeout preferences when authenticated
   useEffect(() => {
     if (user && token) {
@@ -59,16 +103,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, token]);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     if (token) {
       apiPost('/auth/logout').catch(() => {});
     }
+    // Also sign out of Supabase to clear that session
+    await supabase.auth.signOut();
+    
     setUser(null);
     setToken(null);
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
   }, [token]);
+
+  const loginWithGoogle = useCallback(async () => {
+    try {
+        await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: `${window.location.origin}/auth/callback`, // We will handle this in onAuthStateChange
+                queryParams: {
+                    access_type: 'offline',
+                    prompt: 'consent',
+                },
+            }
+        });
+    } catch (e) {
+        console.error("Google Login Error", e);
+    }
+  }, []);
 
   const login = useCallback(async (email: string, password: string, totp_code?: string) => {
     try {
@@ -152,7 +216,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider value={{
       user, token, isLoading,
       isAuthenticated: !!user && !!token,
-      login, signup, logout, refreshUser,
+      login, signup, logout, refreshUser, loginWithGoogle
     }}>
       {children}
 

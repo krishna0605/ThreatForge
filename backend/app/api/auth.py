@@ -335,6 +335,87 @@ def mfa_verify():
     return success_response(message='MFA enabled successfully')
 
 
+@api_bp.route('/auth/google', methods=['POST'])
+@limiter.limit("10/minute")
+def google_auth():
+    """Exchange Supabase Auth token for Backend JWT."""
+    data = request.get_json(force=True, silent=True)
+    if not data:
+        return error_response('Request body required', 400)
+        
+    supabase_token = data.get('access_token')
+    if not supabase_token:
+        return error_response('Supabase access token required', 400)
+
+    try:
+        # Verify token with Supabase
+        user_response = supabase.auth.get_user(supabase_token)
+        if not user_response.user:
+            return error_response('Invalid Supabase token', 401)
+            
+        auth_user = user_response.user
+        user_id = auth_user.id
+        email = auth_user.email
+        
+        # Check/Create Profile
+        user = get_user_by_id(user_id)
+        if not user:
+            # First time login with Google -> Create Profile
+            display_name = auth_user.user_metadata.get('full_name') or email.split('@')[0]
+            avatar_url = auth_user.user_metadata.get('avatar_url') or auth_user.user_metadata.get('picture')
+            
+            profile_data = {
+                'id': user_id,
+                'email': email,
+                'display_name': display_name,
+                'role': 'analyst',
+                'avatar_url': avatar_url,
+                'mfa_enabled': False # Google controls MFA mostly, but we can enable ours too
+            }
+            try:
+                supabase.table('profiles').insert(profile_data).execute()
+                user = UserModel.from_dict(profile_data)
+            except Exception as e:
+                logger.error("Profile creation failed: %s", e)
+                # Try fetch again just in case race condition
+                user = get_user_by_id(user_id)
+                if not user:
+                     return error_response('Failed to create user profile', 500)
+
+        # Generate Backend Tokens
+        access_token = create_access_token(identity=str(user.id))
+        refresh_token = create_refresh_token(identity=str(user.id))
+        
+        # Session & Activity Log
+        try:
+             # Basic session tracking
+             ua_info = parse_user_agent(request.headers.get('User-Agent', ''))
+             supabase.table('activity_logs').insert({
+                'user_id': str(user.id),
+                'action': 'login_google',
+                'ip_address': request.remote_addr
+            }).execute()
+        except Exception:
+            pass
+
+        return success_response({
+            'user': {
+                'id': user.id,
+                'email': user.email,
+                'display_name': user.display_name,
+                'role': user.role,
+                'avatar_url': user.avatar_url,
+                'mfa_enabled': user.mfa_enabled,
+            },
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+        })
+
+    except Exception as e:
+        logger.error("Google Auth Error: %s", e)
+        return error_response('Authentication failed', 401)
+
+
 @api_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint."""
