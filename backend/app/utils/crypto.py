@@ -5,6 +5,13 @@ import logging
 
 logger = logging.getLogger('threatforge.crypto')
 
+# Startup check — warn immediately if ENCRYPTION_KEY is missing
+if not os.getenv('ENCRYPTION_KEY'):
+    logger.warning(
+        "⚠️  ENCRYPTION_KEY is NOT set! MFA enrollment/verification will fail. "
+        "Set ENCRYPTION_KEY in your environment variables."
+    )
+
 def get_cipher_suite():
     key = os.getenv('ENCRYPTION_KEY')
     if not key:

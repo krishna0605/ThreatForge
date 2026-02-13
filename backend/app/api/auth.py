@@ -364,28 +364,32 @@ def mfa_enroll():
 @validate_json(MFASchema)
 def mfa_verify():
     """Verify TOTP code and enable MFA."""
-    user_id = get_current_user_id()
-    user = get_user_by_id(user_id)
-    if not user:
-        return error_response('User not found', 404)
+    try:
+        user_id = get_current_user_id()
+        user = get_user_by_id(user_id)
+        if not user:
+            return error_response('User not found', 404)
 
-    data = request.validated_data
-    totp_code = data.totp_code
+        data = request.validated_data
+        totp_code = data.totp_code
 
-    if not user.mfa_secret:
-        return error_response('MFA not enrolled. Call /auth/mfa/enroll first', 400)
+        if not user.mfa_secret:
+            return error_response('MFA not enrolled. Call /auth/mfa/enroll first', 400)
 
-    secret = decrypt_data(user.mfa_secret)
-    if not secret:
-        return error_response('MFA secret unavailable', 500)
+        secret = decrypt_data(user.mfa_secret)
+        if not secret:
+            return error_response('MFA secret unavailable. Please re-enroll.', 500)
 
-    totp = pyotp.TOTP(secret)
-    if not totp.verify(totp_code):
-        return error_response('Invalid TOTP code', 401)
+        totp = pyotp.TOTP(secret)
+        if not totp.verify(totp_code):
+            return error_response('Invalid TOTP code', 401)
 
-    supabase.table('profiles').update({'mfa_enabled': True}).eq('id', user_id).execute()
+        supabase.table('profiles').update({'mfa_enabled': True}).eq('id', str(user_id)).execute()
 
-    return success_response(message='MFA enabled successfully')
+        return success_response(message='MFA enabled successfully')
+    except Exception as e:
+        logger.error(f"MFA verify failed: {e}")
+        return error_response('MFA verification failed. Please try again.', 500)
 
 
 @api_bp.route('/auth/mfa/verify-login', methods=['POST'])
