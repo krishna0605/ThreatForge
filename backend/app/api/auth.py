@@ -322,34 +322,41 @@ def forgot_password():
 @jwt_required()
 def mfa_enroll():
     """Enable 2FA for user. Returns TOTP secret and QR URI."""
-    user_id = get_current_user_id()
-    user = get_user_by_id(user_id)
-    if not user:
-        return error_response('User not found', 404)
+    try:
+        user_id = get_current_user_id()
+        user = get_user_by_id(user_id)
+        if not user:
+            return error_response('User not found', 404)
 
-    secret = pyotp.random_base32()
-    totp = pyotp.TOTP(secret)
-    provisioning_uri = totp.provisioning_uri(name=user.email, issuer_name='ThreatForge')
+        secret = pyotp.random_base32()
+        totp = pyotp.TOTP(secret)
+        provisioning_uri = totp.provisioning_uri(name=user.email, issuer_name='ThreatForge')
 
-    # Encrypt secret before storing
-    encrypted_secret = encrypt_data(secret)
+        # Encrypt secret before storing
+        encrypted_secret = encrypt_data(secret)
 
-    # Generate recovery codes (10 codes, 12 chars each)
-    import secrets
-    recovery_codes = [secrets.token_hex(6) for _ in range(10)]
-    encrypted_recovery_codes = [encrypt_data(code) for code in recovery_codes]
+        # Generate recovery codes (10 codes, 12 chars each)
+        import secrets
+        recovery_codes = [secrets.token_hex(6) for _ in range(10)]
+        encrypted_recovery_codes = [encrypt_data(code) for code in recovery_codes]
 
-    # Store secret temporarily
-    supabase.table('profiles').update({
-        'mfa_secret': encrypted_secret,
-        'recovery_codes': encrypted_recovery_codes
-    }).eq('id', user_id).execute()
+        # Store secret temporarily
+        supabase.table('profiles').update({
+            'mfa_secret': encrypted_secret,
+            'recovery_codes': encrypted_recovery_codes
+        }).eq('id', str(user_id)).execute()
 
-    return success_response({
-        'secret': secret, # Return plain secret to user for scanning (QR) or manual entry ONE TIME
-        'qr_uri': provisioning_uri,
-        'recovery_codes': recovery_codes,
-    }, message='Scan the QR code with your authenticator app, then verify with a code. Save your recovery codes safely.')
+        return success_response({
+            'secret': secret,
+            'qr_uri': provisioning_uri,
+            'recovery_codes': recovery_codes,
+        }, message='Scan the QR code with your authenticator app, then verify with a code. Save your recovery codes safely.')
+    except ValueError as e:
+        logger.error(f"MFA enrollment failed (config issue): {e}")
+        return error_response('MFA enrollment failed: encryption not configured. Contact administrator.', 500)
+    except Exception as e:
+        logger.error(f"MFA enrollment failed: {e}")
+        return error_response('MFA enrollment failed. Please try again later.', 500)
 
 
 @api_bp.route('/auth/mfa/verify', methods=['POST'])
