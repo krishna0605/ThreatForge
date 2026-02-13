@@ -46,7 +46,7 @@ async function handleResponse(res: Response) {
   }
   if (!res.ok) {
     const data = await res.json().catch(() => ({ error: 'Request failed' }));
-    throw new Error(data.error || `HTTP ${res.status}`);
+    throw new Error(data.error || data.message || `HTTP ${res.status}`);
   }
   return res.json();
 }
@@ -63,6 +63,12 @@ async function request(path: string, options: RequestInit = {}) {
       const isFormData = options.body instanceof FormData;
       options.headers = getHeaders(null, isFormData);
   }
+
+  // Debug logging
+  console.log(`API Request: ${options.method || 'GET'} ${url}`, {
+    headers: options.headers,
+    body: options.body ? '(present)' : '(empty)' 
+  });
 
   let res = await fetch(url, options);
 

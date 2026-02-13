@@ -46,7 +46,8 @@ def get_user_by_id(user_id: str) -> UserModel | None:
 @limiter.limit("5/minute")
 def signup():
     """Register a new user."""
-    data = request.get_json()
+    # FORCE=True allows parsing JSON even if Content-Type header is missing/wrong
+    data = request.get_json(force=True, silent=True)
 
     if not data:
         return error_response('Request body required', 400)
@@ -133,7 +134,8 @@ def signup():
 def login():
     """Authenticate user and return JWT."""
     # HYBRID APPROACH: Try Supabase Auth first, fallback to checking hash in profiles
-    data = request.get_json()
+    # FORCE=True allows parsing JSON even if Content-Type header is missing/wrong
+    data = request.get_json(force=True, silent=True)
 
     if not data:
         return error_response('Request body required', 400)
