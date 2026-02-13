@@ -37,6 +37,12 @@ export default function LoginPage() {
     setError('');
     setIsSubmitting(true);
 
+    // Read values from DOM directly to handle browser autofill
+    // (browser autofill can populate fields without triggering React onChange)
+    const form = e.target as HTMLFormElement;
+    const formEmail = (form.querySelector('#email') as HTMLInputElement)?.value || email;
+    const formPassword = (form.querySelector('#password') as HTMLInputElement)?.value || password;
+
     if (isGoogleMFA && mfaStep) {
         // Google MFA Flow
         const tempToken = sessionStorage.getItem('mfa_temp_token');
@@ -54,8 +60,8 @@ export default function LoginPage() {
              setError(result.error || 'Verification failed');
         }
     } else {
-        // Normal Login Flow
-        const result = await login(email, password, mfaStep ? totpCode : undefined);
+        // Normal Login Flow — use DOM values
+        const result = await login(formEmail, formPassword, mfaStep ? totpCode : undefined);
 
         if (result.success) {
             router.push('/dashboard');
@@ -179,6 +185,8 @@ export default function LoginPage() {
                     </span>
                     <input
                       type="email"
+                      name="email"
+                      autoComplete="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -200,6 +208,8 @@ export default function LoginPage() {
                     </span>
                     <input
                       type={showPassword ? 'text' : 'password'}
+                      name="password"
+                      autoComplete="current-password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
