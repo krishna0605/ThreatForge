@@ -353,10 +353,10 @@ def mfa_enroll():
         }, message='Scan the QR code with your authenticator app, then verify with a code. Save your recovery codes safely.')
     except ValueError as e:
         logger.error(f"MFA enrollment failed (config issue): {e}")
-        return error_response(f'MFA enrollment config error: {str(e)}', 500)
+        return error_response('MFA enrollment failed: encryption not configured. Contact administrator.', 500)
     except Exception as e:
         logger.error(f"MFA enrollment failed: {e}")
-        return error_response(f'MFA enrollment failed: {type(e).__name__}: {str(e)}', 500)
+        return error_response('MFA enrollment failed. Please try again later.', 500)
 
 
 @api_bp.route('/auth/mfa/verify', methods=['POST'])

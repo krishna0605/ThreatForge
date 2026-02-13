@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     avatar_url TEXT,
     mfa_enabled BOOLEAN DEFAULT FALSE,
     mfa_secret TEXT,
+    recovery_codes JSONB,
     password_hash TEXT, -- Storing hash mainly for legacy/demo purposes if needed, otherwise Supabase Auth handles it
     role TEXT DEFAULT 'analyst' CHECK (role IN ('admin', 'analyst', 'viewer')),
     created_at TIMESTAMPTZ DEFAULT NOW(),
