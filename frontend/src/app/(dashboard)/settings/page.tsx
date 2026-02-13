@@ -258,9 +258,10 @@ function SecurityTab() {
   const handleEnrollMFA = async () => {
     setMfaStep('enrolling'); setMfaMsg(null);
     try {
-      const data = await enrollMFA();
-      setQrUri(data.qr_uri);
-      setMfaSecret(data.secret);
+      const response = await enrollMFA();
+      const mfaData = response.data || response;
+      setQrUri(mfaData.qr_uri);
+      setMfaSecret(mfaData.secret);
       setMfaStep('qr');
     } catch (e: any) {
       setMfaMsg({ type: 'err', text: e.message }); setMfaStep('idle');
