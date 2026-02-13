@@ -1,6 +1,6 @@
 'use client';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/proxy';
 
 // Refresh token concurrency control
 let isRefreshing = false;
@@ -53,7 +53,10 @@ async function handleResponse(res: Response) {
 
 // Internal request handler with refresh logic
 async function request(path: string, options: RequestInit = {}) {
-  const url = `${API_BASE}/api${path}`;
+  // When using the proxy (/api/proxy), the proxy route already adds /api/ prefix.
+  // When using a direct backend URL, we need to add /api ourselves.
+  const isProxy = API_BASE.startsWith('/');
+  const url = isProxy ? `${API_BASE}${path}` : `${API_BASE}/api${path}`;
   
   // Default headers if not provided
   if (!options.headers) {
@@ -97,7 +100,8 @@ async function request(path: string, options: RequestInit = {}) {
             'Authorization': `Bearer ${refreshToken}`
         };
         
-        const refreshRes = await fetch(`${API_BASE}/api/auth/refresh`, {
+        const refreshUrl = isProxy ? `${API_BASE}/auth/refresh` : `${API_BASE}/api/auth/refresh`;
+        const refreshRes = await fetch(refreshUrl, {
             method: 'POST',
             headers: refreshHeaders
         });

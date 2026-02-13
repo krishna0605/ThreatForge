@@ -56,3 +56,59 @@ export async function POST(
     );
   }
 }
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ path: string[] }> }
+) {
+  const { path: pathArray } = await params;
+  const path = pathArray.join('/');
+  const url = `${BACKEND_URL}/api/${path}`;
+
+  try {
+    const body = await request.text();
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Authorization': request.headers.get('Authorization') || '',
+        'Content-Type': request.headers.get('Content-Type') || 'application/json',
+      },
+      body,
+    });
+
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Backend service unavailable' },
+      { status: 503 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ path: string[] }> }
+) {
+  const { path: pathArray } = await params;
+  const path = pathArray.join('/');
+  const url = `${BACKEND_URL}/api/${path}`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': request.headers.get('Authorization') || '',
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await response.json();
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Backend service unavailable' },
+      { status: 503 }
+    );
+  }
+}

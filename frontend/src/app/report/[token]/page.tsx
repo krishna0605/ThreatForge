@@ -21,7 +21,7 @@ interface ScanDetail {
   findings: Finding[];
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/proxy';
 
 function severityBadge(s: string) {
   const cls: Record<string, string> = {
@@ -43,8 +43,11 @@ export default function SharedReportPage() {
   const [activeTab, setActiveTab] = useState('Overview');
   const [exporting, setExporting] = useState(false);
 
+  const isProxy = API_BASE.startsWith('/');
+  const sharedUrl = isProxy ? `${API_BASE}/shared/${token}` : `${API_BASE}/api/shared/${token}`;
+
   useEffect(() => {
-    fetch(`${API_BASE}/api/shared/${token}`)
+    fetch(sharedUrl)
       .then(async (res) => {
         if (!res.ok) {
           const data = await res.json().catch(() => ({ error: 'Link invalid or expired' }));

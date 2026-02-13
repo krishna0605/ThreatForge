@@ -36,11 +36,13 @@ def create_app(config_class=Config):
     # Initialize OpenTelemetry
     resource = Resource.create({"service.name": "backend"})
     trace.set_tracer_provider(TracerProvider(resource=resource))
-    tmp_provider = trace.get_tracer_provider()
-    if tmp_provider:
-        tmp_provider.add_span_processor(
-            BatchSpanProcessor(OTLPSpanExporter(endpoint="http://otel-collector:4318/v1/traces"))
-        )
+    otel_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+    if otel_endpoint:
+        tmp_provider = trace.get_tracer_provider()
+        if tmp_provider:
+            tmp_provider.add_span_processor(
+                BatchSpanProcessor(OTLPSpanExporter(endpoint=otel_endpoint))
+            )
     FlaskInstrumentor().instrument_app(app)
 
     # Initialize Prometheus Metrics
@@ -51,8 +53,14 @@ def create_app(config_class=Config):
     # Initialize extensions
     jwt.init_app(app)
     limiter.init_app(app)
-    CORS(app, origins=app.config.get('CORS_ORIGINS', '*'))
-    socketio.init_app(app, cors_allowed_origins=app.config.get('CORS_ORIGINS', '*'), async_mode='threading')
+    # Strip whitespace from CORS origins and filter empty strings
+    cors_origins = app.config.get('CORS_ORIGINS', '*')
+    if isinstance(cors_origins, list):
+        cors_origins = [o.strip() for o in cors_origins if o.strip()]
+    CORS(app, origins=cors_origins, supports_credentials=True,
+         allow_headers=['Content-Type', 'Authorization', 'X-Correlation-ID', 'X-Request-ID'],
+         methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
+    socketio.init_app(app, cors_allowed_origins=cors_origins, async_mode='threading')
 
     # JWT blocklist check for revoked sessions
     @jwt.token_in_blocklist_loader
