@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import ThemeToggle from '@/components/ThemeToggle';
+import { toast } from 'sonner';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -13,26 +14,57 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
-  const { login, isLoading, loginWithGoogle } = useAuth();
-  const router = useRouter();
+  const { login, isLoading, loginWithGoogle, verifyGoogleMFA } = useAuth();
+  const router = useRouter();  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mfaStep, setMfaStep] = useState(false);
   const [totpCode, setTotpCode] = useState('');
+  const [isGoogleMFA, setIsGoogleMFA] = useState(false);
+
+  useEffect(() => {
+    // Check for MFA param from Google redirect
+    const mfaParam = new URLSearchParams(window.location.search).get('mfa');
+    if (mfaParam === 'google') {
+        setMfaStep(true);
+        setIsGoogleMFA(true);
+        // Maybe show a specific message?
+        toast.info("Please verify your identity with 2FA to complete Google login.");
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsSubmitting(true);
 
-    const result = await login(email, password, mfaStep ? totpCode : undefined);
+    if (isGoogleMFA && mfaStep) {
+        // Google MFA Flow
+        const tempToken = sessionStorage.getItem('mfa_temp_token');
+        if (!tempToken) {
+            setError('Session expired. Please log in again.');
+            setIsSubmitting(false);
+            setTimeout(() => window.location.href = '/login', 2000);
+            return;
+        }
 
-    if (result.success) {
-      router.push('/dashboard');
-    } else if (result.mfa_required) {
-      setMfaStep(true);
-      setTotpCode('');
+        const result = await verifyGoogleMFA(tempToken, totpCode);
+        if (result.success) {
+            router.push('/dashboard');
+        } else {
+             setError(result.error || 'Verification failed');
+        }
     } else {
-      setError(result.error || 'Login failed');
+        // Normal Login Flow
+        const result = await login(email, password, mfaStep ? totpCode : undefined);
+
+        if (result.success) {
+            router.push('/dashboard');
+        } else if (result.mfa_required) {
+            setMfaStep(true);
+            setTotpCode('');
+        } else {
+            setError(result.error || 'Login failed');
+        }
     }
     setIsSubmitting(false);
   };

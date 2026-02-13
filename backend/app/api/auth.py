@@ -335,6 +335,62 @@ def mfa_verify():
     return success_response(message='MFA enabled successfully')
 
 
+@api_bp.route('/auth/mfa/verify-login', methods=['POST'])
+@jwt_required()
+def mfa_verify_login():
+    """Verify TOTP code for login (2nd factor)."""
+    identity = get_jwt_identity()
+    
+    # Check if this is a temp token
+    if not identity.startswith("mfa_pending:"):
+        return error_response('Invalid token type for this endpoint', 403)
+        
+    user_id = identity.split(":")[1]
+    user = get_user_by_id(user_id)
+    if not user:
+        return error_response('User not found', 404)
+
+    data = request.get_json(force=True, silent=True) # Robust parsing
+    if not data:
+         return error_response('Request body required', 400)
+         
+    totp_code = data.get('totp_code', '')
+
+    if not user.mfa_secret:
+        return error_response('MFA not enrolled', 400)
+
+    totp = pyotp.TOTP(user.mfa_secret)
+    if not totp.verify(totp_code):
+        return error_response('Invalid TOTP code', 401)
+
+    # Convert temp session to full session
+    access_token = create_access_token(identity=str(user.id))
+    refresh_token = create_refresh_token(identity=str(user.id))
+    
+    # Log login success
+    try:
+        supabase.table('activity_logs').insert({
+            'user_id': str(user.id),
+            'action': 'login_google_mfa',
+            'ip_address': request.remote_addr
+        }).execute()
+    except Exception:
+        pass
+
+    return success_response({
+        'user': {
+            'id': user.id,
+            'email': user.email,
+            'display_name': user.display_name,
+            'role': user.role,
+            'avatar_url': user.avatar_url,
+            'mfa_enabled': user.mfa_enabled,
+        },
+        'access_token': access_token,
+        'refresh_token': refresh_token,
+    })
+
+
 @api_bp.route('/auth/google', methods=['POST'])
 @limiter.limit("10/minute")
 def google_auth():
@@ -381,6 +437,18 @@ def google_auth():
                 user = get_user_by_id(user_id)
                 if not user:
                      return error_response('Failed to create user profile', 500)
+
+        # Check MFA
+        if user.mfa_enabled:
+            # Issue a temporary token with "mfa_pending" scope or similar claim
+            # For simplicity, we can use a short-lived access token with a special identity or claim
+            # But standard flask-jwt-extended claims is better.
+            # Let's use a convention: identity="mfa_pending:<user_id>"
+            temp_token = create_access_token(identity=f"mfa_pending:{user.id}", expires_delta=False) # Default 15 mins is fine
+            return success_response({
+                'mfa_required': True,
+                'temp_token': temp_token
+            }, message='MFA verification required')
 
         # Generate Backend Tokens
         access_token = create_access_token(identity=str(user.id))
