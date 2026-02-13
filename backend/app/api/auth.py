@@ -49,8 +49,6 @@ def get_user_by_id(user_id: str) -> UserModel | None:
 
 @api_bp.route('/auth/signup', methods=['POST'])
 @limiter.limit("5/minute")
-@api_bp.route('/auth/signup', methods=['POST'])
-@limiter.limit("5/minute")
 @validate_json(SignupSchema)
 def signup():
     """Register a new user."""
@@ -127,8 +125,6 @@ def signup():
         return error_response('Internal server error', 500)
 
 
-@api_bp.route('/auth/login', methods=['POST'])
-@limiter.limit("10/minute")
 @api_bp.route('/auth/login', methods=['POST'])
 @limiter.limit("10/minute")
 @validate_json(LoginSchema)
@@ -307,8 +303,6 @@ def refresh():
 
 @api_bp.route('/auth/forgot-password', methods=['POST'])
 @limiter.limit("3/minute")
-@api_bp.route('/auth/forgot-password', methods=['POST'])
-@limiter.limit("3/minute")
 @validate_json(ForgotPasswordSchema)
 def forgot_password():
     """Send password reset email."""
@@ -361,8 +355,6 @@ def mfa_enroll():
 
 @api_bp.route('/auth/mfa/verify', methods=['POST'])
 @jwt_required()
-@api_bp.route('/auth/mfa/verify', methods=['POST'])
-@jwt_required()
 @validate_json(MFASchema)
 def mfa_verify():
     """Verify TOTP code and enable MFA."""
@@ -390,8 +382,6 @@ def mfa_verify():
     return success_response(message='MFA enabled successfully')
 
 
-@api_bp.route('/auth/mfa/verify-login', methods=['POST'])
-@jwt_required()
 @api_bp.route('/auth/mfa/verify-login', methods=['POST'])
 @jwt_required()
 @validate_json(MFASchema)
@@ -466,8 +456,6 @@ def mfa_verify_login():
     })
 
 
-@api_bp.route('/auth/google', methods=['POST'])
-@limiter.limit("10/minute")
 @api_bp.route('/auth/google', methods=['POST'])
 @limiter.limit("10/minute")
 @validate_json(GoogleAuthSchema)
