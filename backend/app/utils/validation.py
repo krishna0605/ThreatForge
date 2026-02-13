@@ -13,7 +13,7 @@ def validate_json(schema_model: type[BaseModel]):
         @wraps(f)
         def wrapper(*args, **kwargs):
             try:
-                # Force=True to parse JSON even if Content-Type is missing/wrong (common client issue)
+                # Force=True to parse JSON even if Content-Type is missing/wrong
                 # Silent=True to return None instead of error if parsing fails
                 json_data = request.get_json(force=True, silent=True)
                 
@@ -23,15 +23,8 @@ def validate_json(schema_model: type[BaseModel]):
                 # Validate
                 validated_data = schema_model(**json_data)
                 
-                # Pass validated data to the function as 'body' kwarg 
-                # OR attach to request context.
-                # Let's attach to kwargs if the function accepts it, or just use request.validated_data context
-                # Standard Flask pattern: arguments are usually from URL.
-                # We can inject 'body' into kwargs if the signature matches, but that requires inspection.
-                # A safer bet is to attach to `request` object.
+                # Attach to request context
                 request.validated_data = validated_data
-                
-                return f(*args, **kwargs)
                 
             except ValidationError as e:
                 # Format Pydantic errors nicely
@@ -45,5 +38,9 @@ def validate_json(schema_model: type[BaseModel]):
             except Exception as e:
                 logger.error(f"Validation unexpected error: {e}")
                 return jsonify({'error': 'Invalid request format'}), 400
+
+            # Call the actual endpoint function OUTSIDE the validation try/except
+            # so endpoint errors propagate correctly instead of being masked
+            return f(*args, **kwargs)
         return wrapper
     return decorator
