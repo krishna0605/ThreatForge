@@ -16,7 +16,6 @@ from ..models.user import UserModel
 from .security import parse_user_agent
 from ..utils.responses import success_response, error_response
 from ..utils.auth import get_current_user_id
-from ..utils.auth import get_current_user_id
 from ..utils.crypto import encrypt_data, decrypt_data
 from ..utils.validation import validate_json
 from ..schemas.auth import LoginSchema, SignupSchema, ForgotPasswordSchema, MFASchema, GoogleAuthSchema
@@ -167,47 +166,42 @@ def login():
             return success_response({
                 'mfa_required': True,
             }, message='MFA verification required')
-        # For MFA, we need the secret from profile
+
+        # If mfa_secret is missing or can't be decrypted, auto-reset MFA
+        # This handles key rotation or corrupted secrets gracefully
         if not user.mfa_secret:
-             # Should not happen if enabled
-             pass
+            logger.warning(f"MFA enabled but no secret stored for user {user.id}. Auto-resetting MFA.")
+            supabase.table('profiles').update({
+                'mfa_enabled': False, 'mfa_secret': None, 'recovery_codes': None
+            }).eq('id', str(user.id)).execute()
+            # Fall through to generate tokens — user can re-enroll later
         else:
             secret = decrypt_data(user.mfa_secret)
             if not secret:
-                logger.error(f"Failed to decrypt MFA secret for user {user.id}")
-                return error_response('MFA configuration error', 500)
-                
-                
-            totp = pyotp.TOTP(secret)
-            if not totp.verify(totp_code):
-                # Check recovery codes if TOTP fails
-                valid_recovery = False
-                if user.recovery_codes:
-                    # User provided code might be a recovery code
-                    # But recovery codes are usually longer. Let's try to find it in the list.
-                    # Since they are encrypted in DB, we have to decrypt them to match, 
-                    # OR we encrypt the input and match. 
-                    # But `encrypt_data` uses random IV (Fernet default), so standard equality won't work 
-                    # if we just encrypt the input. We must decrypt the stored codes.
-                    
-                    # Optimization: Only check if code length looks like a recovery code (e.g. 10+ chars)
-                    # TOTP is 6 digits.
-                    if len(totp_code) > 6:
+                # Decryption failed — ENCRYPTION_KEY changed or data corrupted
+                logger.error(f"Failed to decrypt MFA secret for user {user.id}. Auto-resetting MFA.")
+                supabase.table('profiles').update({
+                    'mfa_enabled': False, 'mfa_secret': None, 'recovery_codes': None
+                }).eq('id', str(user.id)).execute()
+                # Fall through to generate tokens — user can re-enroll later
+            else:
+                totp = pyotp.TOTP(secret)
+                if not totp.verify(totp_code):
+                    # Check recovery codes if TOTP fails
+                    valid_recovery = False
+                    if user.recovery_codes and len(totp_code) > 6:
                         updated_codes = []
                         for enc_code in user.recovery_codes:
                             dec_code = decrypt_data(enc_code)
                             if dec_code == totp_code:
                                 valid_recovery = True
-                                # Consume the code (don't add to updated list)
                             else:
                                 updated_codes.append(enc_code)
-                        
                         if valid_recovery:
-                            # Update user profile with remaining codes
                             supabase.table('profiles').update({'recovery_codes': updated_codes}).eq('id', user.id).execute()
-                
-                if not valid_recovery:
-                    return error_response('Invalid TOTP or recovery code', 401)
+
+                    if not valid_recovery:
+                        return error_response('Invalid TOTP or recovery code', 401)
 
     # Generate tokens (Flask-JWT-Extended)
     access_token = create_access_token(identity=str(user.id))
@@ -402,31 +396,40 @@ def mfa_verify_login():
     totp_code = data.totp_code
 
     if not user.mfa_secret:
-        return error_response('MFA not enrolled', 400)
+        # No secret stored — auto-reset and issue full tokens
+        logger.warning(f"MFA verify-login: no secret for user {user.id}. Auto-resetting MFA.")
+        supabase.table('profiles').update({
+            'mfa_enabled': False, 'mfa_secret': None, 'recovery_codes': None
+        }).eq('id', str(user.id)).execute()
+        # Fall through to issue tokens below
+    else:
+        secret = decrypt_data(user.mfa_secret)
+        if not secret:
+            # Decryption failed — auto-reset and issue full tokens
+            logger.error(f"MFA verify-login: decrypt failed for user {user.id}. Auto-resetting MFA.")
+            supabase.table('profiles').update({
+                'mfa_enabled': False, 'mfa_secret': None, 'recovery_codes': None
+            }).eq('id', str(user.id)).execute()
+            # Fall through to issue tokens below
+        else:
+            totp = pyotp.TOTP(secret)
+            if not totp.verify(totp_code):
+                # Check recovery codes
+                valid_recovery = False
+                if user.recovery_codes and len(totp_code) > 6:
+                     updated_codes = []
+                     for enc_code in user.recovery_codes:
+                         dec_code = decrypt_data(enc_code)
+                         if dec_code == totp_code:
+                             valid_recovery = True
+                         else:
+                             updated_codes.append(enc_code)
+                     
+                     if valid_recovery:
+                          supabase.table('profiles').update({'recovery_codes': updated_codes}).eq('id', user.id).execute()
 
-    secret = decrypt_data(user.mfa_secret)
-    if not secret:
-        logger.error(f"Failed to decrypt MFA secret for user {user.id}")
-        return error_response('Internal auth error', 500)
-
-    totp = pyotp.TOTP(secret)
-    if not totp.verify(totp_code):
-        # Check recovery codes
-        valid_recovery = False
-        if user.recovery_codes and len(totp_code) > 6:
-             updated_codes = []
-             for enc_code in user.recovery_codes:
-                 dec_code = decrypt_data(enc_code)
-                 if dec_code == totp_code:
-                     valid_recovery = True
-                 else:
-                     updated_codes.append(enc_code)
-             
-             if valid_recovery:
-                  supabase.table('profiles').update({'recovery_codes': updated_codes}).eq('id', user.id).execute()
-
-        if not valid_recovery:
-            return error_response('Invalid TOTP or recovery code', 401)
+                if not valid_recovery:
+                    return error_response('Invalid TOTP or recovery code', 401)
 
     # Convert temp session to full session
     access_token = create_access_token(identity=str(user.id))
