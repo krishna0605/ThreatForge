@@ -7,7 +7,6 @@ REQUIRED = [
     'JWT_SECRET_KEY',
     'SUPABASE_URL',
     'SUPABASE_SERVICE_KEY',
-    'DB_PASSWORD', # Needed for direct DB access if used
     'ML_SERVICE_URL',
 ]
 
