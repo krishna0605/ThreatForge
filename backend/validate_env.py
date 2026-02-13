@@ -33,9 +33,14 @@ def validate():
     for var in REQUIRED:
         val = os.environ.get(var, '')
         if not val:
-            # SUPABASE_SERVICE_KEY might be SUPABASE_KEY in some setups, but config uses SERVICE_KEY
+            # SUPABASE_SERVICE_KEY might be SUPABASE_KEY
             if var == 'SUPABASE_SERVICE_KEY' and os.environ.get('SUPABASE_KEY'):
                 continue
+            
+            # DB_PASSWORD is not needed if DATABASE_URL is set (e.g. Railway/Heroku/Render)
+            if var == 'DB_PASSWORD' and os.environ.get('DATABASE_URL'):
+                continue
+                
             errors.append(f"  ✗ {var} is not set")
 
     # Check Insecure Defaults in Production
