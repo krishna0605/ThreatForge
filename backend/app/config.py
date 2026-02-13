@@ -17,7 +17,7 @@ class Config:
 
     # Rate Limiting
     RATELIMIT_DEFAULT = '100/minute'
-    RATELIMIT_STORAGE_URI = os.environ.get('REDIS_URL', 'memory://')
+    RATELIMIT_STORAGE_URI = 'memory://'
 
     # Supabase
     SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
@@ -29,10 +29,6 @@ class Config:
     # File Upload
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50 MB
     UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', '/tmp/uploads')
-
-    # Celery
-    CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
-    CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
 
     # Sentry
     SENTRY_DSN = os.environ.get('SENTRY_DSN', '')

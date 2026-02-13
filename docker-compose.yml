@@ -36,12 +36,9 @@ services:
       - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
       - ML_SERVICE_URL=http://ml-service:7860
       - ML_API_KEY=${ML_API_KEY}
-      - REDIS_URL=redis://redis:6379/0
       - CORS_ORIGINS=http://localhost:3000
       - FLASK_CONFIG=production
     depends_on:
-      redis:
-        condition: service_healthy
       ml-service:
         condition: service_healthy
     restart: unless-stopped
@@ -78,21 +75,6 @@ services:
     networks:
       - threatforge
 
-  # --- Redis (Rate Limiting + Token Blocklist) ---
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 15s
-      timeout: 3s
-      retries: 3
-    volumes:
-      - redis-data:/data
-    networks:
-      - threatforge
 
   # --- Observability Stack ---
   prometheus:
@@ -153,7 +135,6 @@ services:
 
 volumes:
   uploads:
-  redis-data:
 
 networks:
   threatforge:

@@ -23,15 +23,16 @@ RUN mkdir -p /tmp/uploads && chown -R appuser:appgroup /tmp/uploads /app
 
 USER appuser
 
-EXPOSE 5000
+EXPOSE ${PORT:-5000}
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD curl -f http://localhost:5000/api/health || exit 1
+  CMD curl -f http://localhost:${PORT:-5000}/api/health || exit 1
 
-CMD ["gunicorn", "run:app", \
-     "--worker-class", "gevent", \
-     "--workers", "4", \
-     "--bind", "0.0.0.0:5000", \
-     "--timeout", "120", \
-     "--access-logfile", "-", \
-     "--error-logfile", "-"]
+# Shell form so $PORT expands at runtime (Render assigns PORT dynamically)
+CMD gunicorn run:app \
+     --worker-class gevent \
+     --workers 4 \
+     --bind 0.0.0.0:${PORT:-5000} \
+     --timeout 120 \
+     --access-logfile - \
+     --error-logfile -
