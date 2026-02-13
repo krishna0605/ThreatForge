@@ -33,11 +33,10 @@ def register_error_handlers(app):
         tb = traceback.format_exc()
         logger.error(f"Unhandled exception: {e}\n{tb}")
         
-        # Include debug info in response (for diagnosing production issues)
+        # Return generic 500
         return jsonify({
             "status": "error",
             "message": "An unexpected error occurred. Please try again later.",
-            "code": 500,
-            "debug": f"{type(e).__name__}: {str(e)}"
+            "code": 500
         }), 500
 
