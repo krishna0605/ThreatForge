@@ -8,6 +8,13 @@ import logging
 
 from ..supabase_client import supabase
 from ..extensions import limiter
+from ..utils.auth import get_current_user_id
+from ..utils.crypto import decrypt_data
+from ..utils.validation import validate_json
+from ..schemas.security import (
+    ChangePasswordSchema, DisableMFASchema, 
+    UpdatePreferencesSchema, AddIPWhitelistSchema
+)
 
 logger = logging.getLogger('threatforge.security')
 
@@ -85,22 +92,16 @@ def log_audit(user_id: str, action: str, resource_type: str = None,
 @security_bp.route('/auth/change-password', methods=['PUT'])
 @jwt_required()
 @limiter.limit("5/minute")
+@validate_json(ChangePasswordSchema)
 def change_password():
     """Change the authenticated user's password."""
-    user_id = get_jwt_identity()
-    data = request.get_json()
+    user_id = get_current_user_id()
+    data = request.validated_data
 
-    if not data:
-        return jsonify({'error': 'Request body required'}), 400
+    current_password = data.current_password
+    new_password = data.new_password
+    confirm_password = data.confirm_password
 
-    current_password = data.get('current_password', '')
-    new_password = data.get('new_password', '')
-    confirm_password = data.get('confirm_password', '')
-
-    if not current_password or not new_password:
-        return jsonify({'error': 'Current and new password are required'}), 400
-    if len(new_password) < 8:
-        return jsonify({'error': 'New password must be at least 8 characters'}), 400
     if new_password != confirm_password:
         return jsonify({'error': 'Passwords do not match'}), 400
     if current_password == new_password:
@@ -144,14 +145,12 @@ def change_password():
 # ═══════════════════════════════════════════════════════
 @security_bp.route('/auth/mfa/disable', methods=['POST'])
 @jwt_required()
+@validate_json(DisableMFASchema)
 def mfa_disable():
     """Disable 2FA for the authenticated user."""
-    user_id = get_jwt_identity()
-    data = request.get_json()
-    totp_code = data.get('totp_code', '') if data else ''
-
-    if not totp_code:
-        return jsonify({'error': 'Current TOTP code required to disable MFA'}), 400
+    user_id = get_current_user_id()
+    data = request.validated_data
+    totp_code = data.totp_code
 
     try:
         import pyotp
@@ -159,9 +158,14 @@ def mfa_disable():
         if not profile.data or not profile.data[0].get('mfa_enabled'):
             return jsonify({'error': 'MFA is not enabled'}), 400
 
-        secret = profile.data[0].get('mfa_secret')
-        if not secret:
+        encrypted_secret = profile.data[0].get('mfa_secret')
+        if not encrypted_secret:
             return jsonify({'error': 'MFA secret not found'}), 400
+
+        secret = decrypt_data(encrypted_secret)
+        if not secret:
+            logger.error(f"Failed to decrypt MFA secret for user {user_id}")
+            return jsonify({'error': 'Internal auth error'}), 500
 
         totp = pyotp.TOTP(secret)
         if not totp.verify(totp_code):
@@ -188,7 +192,7 @@ def mfa_disable():
 @jwt_required()
 def get_sessions():
     """List active sessions for the authenticated user."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     current_jti = get_jwt().get('jti', '')
 
     try:
@@ -223,7 +227,7 @@ def get_sessions():
 @jwt_required()
 def revoke_session(session_id):
     """Revoke a specific session."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     current_jti = get_jwt().get('jti', '')
 
     try:
@@ -247,9 +251,9 @@ def revoke_session(session_id):
             'is_revoked': True
         }).eq('id', session_id).execute()
 
-        # Add JTI to blocklist (in-memory — extensions.py will check this)
-        from ..extensions import revoked_tokens
-        revoked_tokens.add(session.get('token_jti'))
+        # Add JTI to blocklist (Redis + in-memory)
+        from ..services.auth_service import revoke_token
+        revoke_token(session.get('token_jti'))
 
         log_audit(user_id, 'session_revoked', 'session', session_id,
                   details={'revoked_ip': session.get('ip_address')})
@@ -268,7 +272,7 @@ def revoke_session(session_id):
 @jwt_required()
 def get_preferences():
     """Get security preferences for the authenticated user."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
 
     try:
         response = supabase.table('security_preferences') \
@@ -298,19 +302,18 @@ def get_preferences():
 
 @security_bp.route('/security/preferences', methods=['PUT'])
 @jwt_required()
+@validate_json(UpdatePreferencesSchema)
 def update_preferences():
     """Update security preferences (upsert)."""
-    user_id = get_jwt_identity()
-    data = request.get_json()
+    user_id = get_current_user_id()
+    data = request.validated_data
 
-    if not data:
-        return jsonify({'error': 'Request body required'}), 400
+    # Pydantic model dump with exclude_unset=True matches original logic
+    update_data = data.model_dump(exclude_unset=True)
+    
+    if not update_data:
+         return jsonify({'message': 'No changes provided'}), 200
 
-    allowed_fields = [
-        'session_timeout_enabled', 'session_timeout_minutes',
-        'ip_whitelist_enabled', 'audit_logging_enabled'
-    ]
-    update_data = {k: v for k, v in data.items() if k in allowed_fields}
     update_data['user_id'] = user_id
     update_data['updated_at'] = datetime.now(timezone.utc).isoformat()
 
@@ -334,7 +337,7 @@ def update_preferences():
 @jwt_required()
 def get_ip_whitelist():
     """List IP whitelist entries for the authenticated user."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
 
     try:
         response = supabase.table('ip_whitelist') \
@@ -352,19 +355,14 @@ def get_ip_whitelist():
 
 @security_bp.route('/security/ip-whitelist', methods=['POST'])
 @jwt_required()
+@validate_json(AddIPWhitelistSchema)
 def add_ip_whitelist():
     """Add a CIDR range to the whitelist."""
-    user_id = get_jwt_identity()
-    data = request.get_json()
+    user_id = get_current_user_id()
+    data = request.validated_data
 
-    if not data:
-        return jsonify({'error': 'Request body required'}), 400
-
-    cidr_range = data.get('cidr_range', '').strip()
-    label = data.get('label', '').strip()
-
-    if not cidr_range:
-        return jsonify({'error': 'CIDR range is required'}), 400
+    cidr_range = data.cidr_range.strip()
+    label = data.label.strip() if data.label else None
 
     # Basic CIDR validation
     import ipaddress
@@ -395,7 +393,7 @@ def add_ip_whitelist():
 @jwt_required()
 def remove_ip_whitelist(entry_id):
     """Remove a CIDR range from the whitelist."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
 
     try:
         supabase.table('ip_whitelist') \
@@ -420,7 +418,7 @@ def remove_ip_whitelist(entry_id):
 @jwt_required()
 def get_audit_logs():
     """Get paginated audit logs for the authenticated user."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
     per_page = min(per_page, 100)  # Cap at 100

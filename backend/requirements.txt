@@ -4,6 +4,7 @@ flask-jwt-extended==4.7.1
 flask-limiter==3.12
 flask-socketio==5.5.1
 python-dotenv==1.0.1
+flask-talisman==1.1.0
 supabase==2.11.0
 requests==2.32.3
 PyYAML==6.0.2
@@ -13,6 +14,7 @@ python-magic==0.4.27
 resend==2.7.0
 pywebpush==2.0.1
 pyotp==2.9.0
+cryptography==42.0.0
 gunicorn==23.0.0
 gevent==24.11.1
 # --- Test dependencies ---

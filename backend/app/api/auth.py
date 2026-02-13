@@ -15,6 +15,11 @@ from ..supabase_client import supabase
 from ..models.user import UserModel
 from .security import parse_user_agent
 from ..utils.responses import success_response, error_response
+from ..utils.auth import get_current_user_id
+from ..utils.auth import get_current_user_id
+from ..utils.crypto import encrypt_data, decrypt_data
+from ..utils.validation import validate_json
+from ..schemas.auth import LoginSchema, SignupSchema, ForgotPasswordSchema, MFASchema, GoogleAuthSchema
 
 logger = logging.getLogger('threatforge.auth')
 
@@ -44,23 +49,16 @@ def get_user_by_id(user_id: str) -> UserModel | None:
 
 @api_bp.route('/auth/signup', methods=['POST'])
 @limiter.limit("5/minute")
+@api_bp.route('/auth/signup', methods=['POST'])
+@limiter.limit("5/minute")
+@validate_json(SignupSchema)
 def signup():
     """Register a new user."""
-    # FORCE=True allows parsing JSON even if Content-Type header is missing/wrong
-    data = request.get_json(force=True, silent=True)
-
-    if not data:
-        return error_response('Request body required', 400)
-
-    email = data.get('email', '').strip().lower()
-    password = data.get('password', '')
-    display_name = data.get('display_name', '')
-
-    # Validation
-    if not email or '@' not in email:
-        return error_response('Valid email is required', 400)
-    if len(password) < 8:
-        return error_response('Password must be at least 8 characters', 400)
+    data = request.validated_data
+    
+    email = data.email.lower()
+    password = data.password
+    display_name = data.display_name
 
     # Check if user exists
     existing = get_user_by_email(email)
@@ -131,20 +129,16 @@ def signup():
 
 @api_bp.route('/auth/login', methods=['POST'])
 @limiter.limit("10/minute")
+@api_bp.route('/auth/login', methods=['POST'])
+@limiter.limit("10/minute")
+@validate_json(LoginSchema)
 def login():
     """Authenticate user and return JWT."""
     # HYBRID APPROACH: Try Supabase Auth first, fallback to checking hash in profiles
-    # FORCE=True allows parsing JSON even if Content-Type header is missing/wrong
-    data = request.get_json(force=True, silent=True)
+    data = request.validated_data
 
-    if not data:
-        return error_response('Request body required', 400)
-
-    email = data.get('email', '').strip().lower()
-    password = data.get('password', '')
-
-    if not email or not password:
-        return error_response('Email and password are required', 400)
+    email = data.email.lower()
+    password = data.password
 
     try:
         # 1. Try Supabase Auth Sign In
@@ -172,7 +166,7 @@ def login():
 
     # Check MFA
     if user.mfa_enabled:
-        totp_code = data.get('totp_code')
+        totp_code = data.totp_code
         if not totp_code:
             return success_response({
                 'mfa_required': True,
@@ -182,9 +176,42 @@ def login():
              # Should not happen if enabled
              pass
         else:
-            totp = pyotp.TOTP(user.mfa_secret)
+            secret = decrypt_data(user.mfa_secret)
+            if not secret:
+                logger.error(f"Failed to decrypt MFA secret for user {user.id}")
+                return error_response('MFA configuration error', 500)
+                
+                
+            totp = pyotp.TOTP(secret)
             if not totp.verify(totp_code):
-                return error_response('Invalid TOTP code', 401)
+                # Check recovery codes if TOTP fails
+                valid_recovery = False
+                if user.recovery_codes:
+                    # User provided code might be a recovery code
+                    # But recovery codes are usually longer. Let's try to find it in the list.
+                    # Since they are encrypted in DB, we have to decrypt them to match, 
+                    # OR we encrypt the input and match. 
+                    # But `encrypt_data` uses random IV (Fernet default), so standard equality won't work 
+                    # if we just encrypt the input. We must decrypt the stored codes.
+                    
+                    # Optimization: Only check if code length looks like a recovery code (e.g. 10+ chars)
+                    # TOTP is 6 digits.
+                    if len(totp_code) > 6:
+                        updated_codes = []
+                        for enc_code in user.recovery_codes:
+                            dec_code = decrypt_data(enc_code)
+                            if dec_code == totp_code:
+                                valid_recovery = True
+                                # Consume the code (don't add to updated list)
+                            else:
+                                updated_codes.append(enc_code)
+                        
+                        if valid_recovery:
+                            # Update user profile with remaining codes
+                            supabase.table('profiles').update({'recovery_codes': updated_codes}).eq('id', user.id).execute()
+                
+                if not valid_recovery:
+                    return error_response('Invalid TOTP or recovery code', 401)
 
     # Generate tokens (Flask-JWT-Extended)
     access_token = create_access_token(identity=str(user.id))
@@ -230,7 +257,7 @@ def login():
 @jwt_required()
 def get_me():
     """Get current user profile."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     user = get_user_by_id(user_id)
     
     if not user:
@@ -251,7 +278,7 @@ def get_me():
 @jwt_required()
 def logout():
     """Invalidate current session."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     supabase.auth.sign_out() # Sign out from Supabase too
     
     supabase.table('activity_logs').insert({
@@ -259,6 +286,12 @@ def logout():
         'action': 'logout',
         'ip_address': request.remote_addr
     }).execute()
+
+    # Revoke access token
+    jti = get_jwt().get('jti')
+    if jti:
+        from ..services.auth_service import revoke_token
+        revoke_token(jti)
     
     return success_response(message='Logged out successfully')
 
@@ -274,10 +307,13 @@ def refresh():
 
 @api_bp.route('/auth/forgot-password', methods=['POST'])
 @limiter.limit("3/minute")
+@api_bp.route('/auth/forgot-password', methods=['POST'])
+@limiter.limit("3/minute")
+@validate_json(ForgotPasswordSchema)
 def forgot_password():
     """Send password reset email."""
-    data = request.get_json()
-    email = data.get('email', '').strip().lower() if data else ''
+    data = request.validated_data
+    email = data.email.lower()
     
     if email:
         try:
@@ -293,7 +329,7 @@ def forgot_password():
 @jwt_required()
 def mfa_enroll():
     """Enable 2FA for user. Returns TOTP secret and QR URI."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     user = get_user_by_id(user_id)
     if not user:
         return error_response('User not found', 404)
@@ -302,31 +338,50 @@ def mfa_enroll():
     totp = pyotp.TOTP(secret)
     provisioning_uri = totp.provisioning_uri(name=user.email, issuer_name='ThreatForge')
 
+    # Encrypt secret before storing
+    encrypted_secret = encrypt_data(secret)
+
+    # Generate recovery codes (10 codes, 12 chars each)
+    import secrets
+    recovery_codes = [secrets.token_hex(6) for _ in range(10)]
+    encrypted_recovery_codes = [encrypt_data(code) for code in recovery_codes]
+
     # Store secret temporarily
-    supabase.table('profiles').update({'mfa_secret': secret}).eq('id', user_id).execute()
+    supabase.table('profiles').update({
+        'mfa_secret': encrypted_secret,
+        'recovery_codes': encrypted_recovery_codes
+    }).eq('id', user_id).execute()
 
     return success_response({
-        'secret': secret,
+        'secret': secret, # Return plain secret to user for scanning (QR) or manual entry ONE TIME
         'qr_uri': provisioning_uri,
-    }, message='Scan the QR code with your authenticator app, then verify with a code')
+        'recovery_codes': recovery_codes,
+    }, message='Scan the QR code with your authenticator app, then verify with a code. Save your recovery codes safely.')
 
 
 @api_bp.route('/auth/mfa/verify', methods=['POST'])
 @jwt_required()
+@api_bp.route('/auth/mfa/verify', methods=['POST'])
+@jwt_required()
+@validate_json(MFASchema)
 def mfa_verify():
     """Verify TOTP code and enable MFA."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     user = get_user_by_id(user_id)
     if not user:
         return error_response('User not found', 404)
 
-    data = request.get_json()
-    totp_code = data.get('totp_code', '') if data else ''
+    data = request.validated_data
+    totp_code = data.totp_code
 
     if not user.mfa_secret:
         return error_response('MFA not enrolled. Call /auth/mfa/enroll first', 400)
 
-    totp = pyotp.TOTP(user.mfa_secret)
+    secret = decrypt_data(user.mfa_secret)
+    if not secret:
+        return error_response('MFA secret unavailable', 500)
+
+    totp = pyotp.TOTP(secret)
     if not totp.verify(totp_code):
         return error_response('Invalid TOTP code', 401)
 
@@ -337,6 +392,9 @@ def mfa_verify():
 
 @api_bp.route('/auth/mfa/verify-login', methods=['POST'])
 @jwt_required()
+@api_bp.route('/auth/mfa/verify-login', methods=['POST'])
+@jwt_required()
+@validate_json(MFASchema)
 def mfa_verify_login():
     """Verify TOTP code for login (2nd factor)."""
     identity = get_jwt_identity()
@@ -350,18 +408,35 @@ def mfa_verify_login():
     if not user:
         return error_response('User not found', 404)
 
-    data = request.get_json(force=True, silent=True) # Robust parsing
-    if not data:
-         return error_response('Request body required', 400)
-         
-    totp_code = data.get('totp_code', '')
+    data = request.validated_data
+    totp_code = data.totp_code
 
     if not user.mfa_secret:
         return error_response('MFA not enrolled', 400)
 
-    totp = pyotp.TOTP(user.mfa_secret)
+    secret = decrypt_data(user.mfa_secret)
+    if not secret:
+        logger.error(f"Failed to decrypt MFA secret for user {user.id}")
+        return error_response('Internal auth error', 500)
+
+    totp = pyotp.TOTP(secret)
     if not totp.verify(totp_code):
-        return error_response('Invalid TOTP code', 401)
+        # Check recovery codes
+        valid_recovery = False
+        if user.recovery_codes and len(totp_code) > 6:
+             updated_codes = []
+             for enc_code in user.recovery_codes:
+                 dec_code = decrypt_data(enc_code)
+                 if dec_code == totp_code:
+                     valid_recovery = True
+                 else:
+                     updated_codes.append(enc_code)
+             
+             if valid_recovery:
+                  supabase.table('profiles').update({'recovery_codes': updated_codes}).eq('id', user.id).execute()
+
+        if not valid_recovery:
+            return error_response('Invalid TOTP or recovery code', 401)
 
     # Convert temp session to full session
     access_token = create_access_token(identity=str(user.id))
@@ -393,15 +468,14 @@ def mfa_verify_login():
 
 @api_bp.route('/auth/google', methods=['POST'])
 @limiter.limit("10/minute")
+@api_bp.route('/auth/google', methods=['POST'])
+@limiter.limit("10/minute")
+@validate_json(GoogleAuthSchema)
 def google_auth():
     """Exchange Supabase Auth token for Backend JWT."""
-    data = request.get_json(force=True, silent=True)
-    if not data:
-        return error_response('Request body required', 400)
+    data = request.validated_data
         
-    supabase_token = data.get('access_token')
-    if not supabase_token:
-        return error_response('Supabase access token required', 400)
+    supabase_token = data.access_token
 
     try:
         # Verify token with Supabase

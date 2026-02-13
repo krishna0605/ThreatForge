@@ -14,6 +14,7 @@ class UserModel(SupabaseModel):
     avatar_url: Optional[str] = None
     mfa_enabled: bool = Field(default=False)
     mfa_secret: Optional[str] = None
+    recovery_codes: Optional[list[str]] = None
     created_at: Optional[datetime] = None
 
     # Helper for legacy compatibility if needed

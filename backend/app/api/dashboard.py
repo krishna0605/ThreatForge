@@ -6,6 +6,7 @@ import logging
 
 from . import api_bp
 from ..supabase_client import supabase
+from ..utils.auth import get_current_user_id
 
 logger = logging.getLogger('threatforge.dashboard')
 
@@ -13,7 +14,7 @@ logger = logging.getLogger('threatforge.dashboard')
 @jwt_required()
 def get_dashboard_stats():
     """Get aggregated stats for the dashboard."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
 
     try:
         # 1. Total Scans
@@ -58,7 +59,7 @@ def get_dashboard_stats():
 @jwt_required()
 def get_dashboard_activity():
     """Get scan activity for the last 7 days."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
 
     try:
         end_date = datetime.now(timezone.utc)
@@ -108,7 +109,7 @@ def get_dashboard_activity():
 @jwt_required()
 def get_threat_distribution():
     """Get distribution of threats by type."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
 
     try:
         findings_res = supabase.table('findings').select('finding_type, scans!inner(user_id)')\
@@ -153,7 +154,7 @@ def get_threat_distribution():
 @jwt_required()
 def get_security_health():
     """Compute system security health gauges from real data."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
 
     try:
         # Network Integrity
@@ -207,7 +208,7 @@ def get_security_health():
 @jwt_required()
 def get_severity_breakdown():
     """Get severity counts from actual findings."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
 
     try:
         findings_res = supabase.table('findings').select('severity, scans!inner(user_id)')\
@@ -240,7 +241,7 @@ def get_severity_breakdown():
 @jwt_required()
 def get_security_actions():
     """Generate smart recommended security actions."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
 
     try:
         actions = []

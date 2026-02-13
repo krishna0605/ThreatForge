@@ -5,6 +5,7 @@ from datetime import datetime, timezone, timedelta
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..supabase_client import supabase
+from ..utils.auth import get_current_user_id
 
 shared_bp = Blueprint('shared', __name__)
 
@@ -13,7 +14,7 @@ shared_bp = Blueprint('shared', __name__)
 @jwt_required()
 def create_share_link(scan_id):
     """Create a shareable link for a scan (authenticated)."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
 
     # Verify ownership
     scan_res = supabase.table('scans').select('id').eq('id', scan_id).eq('user_id', user_id).execute()

@@ -33,6 +33,10 @@ def create_app(config_class=Config):
     from .middleware.correlation import register_correlation_middleware
     register_correlation_middleware(app)
 
+    # Security Headers (Talisman)
+    from .middleware.security_headers import configure_security_headers
+    configure_security_headers(app)
+
     # Initialize OpenTelemetry
     resource = Resource.create({"service.name": "backend"})
     trace.set_tracer_provider(TracerProvider(resource=resource))
@@ -63,25 +67,12 @@ def create_app(config_class=Config):
     socketio.init_app(app, cors_allowed_origins=cors_origins, async_mode='threading')
 
     # JWT blocklist check for revoked sessions
+    # JWT blocklist check for revoked sessions
     @jwt.token_in_blocklist_loader
     def check_if_token_revoked(jwt_header, jwt_payload):
         jti = jwt_payload.get('jti', '')
-        if jti in revoked_tokens:
-            return True
-        # Also check DB for sessions revoked before server restart
-        try:
-            from .supabase_client import supabase
-            response = supabase.table('user_sessions') \
-                .select('is_revoked') \
-                .eq('token_jti', jti) \
-                .limit(1) \
-                .execute()
-            if response.data and response.data[0].get('is_revoked'):
-                revoked_tokens.add(jti)  # Cache it
-                return True
-        except Exception:
-            pass
-        return False
+        from .services.auth_service import is_token_revoked
+        return is_token_revoked(jti)
 
     # Register blueprints
     from .api import api_bp

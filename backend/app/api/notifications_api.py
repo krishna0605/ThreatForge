@@ -6,6 +6,11 @@ import logging
 
 from ..supabase_client import supabase
 from ..services.notifications import send_test_notification, send_weekly_digest
+from ..utils.auth import get_current_user_id
+from ..utils.validation import validate_json
+from ..schemas.notifications import (
+    UpdateNotificationPrefsSchema, PushSubscriptionSchema, TestNotificationSchema
+)
 
 logger = logging.getLogger('threatforge.notifications_api')
 
@@ -18,7 +23,7 @@ notifications_bp = Blueprint('notifications', __name__)
 @jwt_required()
 def get_notification_prefs():
     """Get user's notification preferences."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     try:
         res = supabase.table('notification_preferences') \
             .select('*').eq('user_id', user_id).limit(1).execute()
@@ -43,16 +48,14 @@ def get_notification_prefs():
 
 @notifications_bp.route('/notifications/preferences', methods=['PUT'])
 @jwt_required()
+@validate_json(UpdateNotificationPrefsSchema)
 def update_notification_prefs():
     """Update notification preferences."""
-    user_id = get_jwt_identity()
-    data = request.get_json() or {}
+    user_id = get_current_user_id()
+    data = request.validated_data
 
-    allowed_fields = [
-        'email_threat_alerts', 'email_scan_completions', 'email_weekly_digest',
-        'push_critical_alerts', 'push_scan_updates',
-    ]
-    update = {k: v for k, v in data.items() if k in allowed_fields}
+    # Pydantic dump excluding None to only update sent fields
+    update = data.model_dump(exclude_unset=True)
     update['updated_at'] = datetime.now(timezone.utc).isoformat()
 
     try:
@@ -79,7 +82,7 @@ def update_notification_prefs():
 @jwt_required()
 def get_notifications():
     """Get notification history (paginated)."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
     offset = (page - 1) * per_page
@@ -107,7 +110,7 @@ def get_notifications():
 @jwt_required()
 def unread_count():
     """Get unread notification count."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     try:
         res = supabase.table('notifications') \
             .select('id', count='exact') \
@@ -124,7 +127,7 @@ def unread_count():
 @jwt_required()
 def mark_read(notification_id):
     """Mark a single notification as read."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     try:
         supabase.table('notifications') \
             .update({'is_read': True}) \
@@ -141,7 +144,7 @@ def mark_read(notification_id):
 @jwt_required()
 def mark_all_read():
     """Mark all notifications as read."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     try:
         supabase.table('notifications') \
             .update({'is_read': True}) \
@@ -158,14 +161,12 @@ def mark_all_read():
 
 @notifications_bp.route('/notifications/push/subscribe', methods=['POST'])
 @jwt_required()
+@validate_json(PushSubscriptionSchema)
 def push_subscribe():
     """Store the browser's push subscription object."""
-    user_id = get_jwt_identity()
-    data = request.get_json() or {}
-    subscription = data.get('subscription')
-
-    if not subscription:
-        return jsonify({'error': 'subscription object required'}), 400
+    user_id = get_current_user_id()
+    data = request.validated_data
+    subscription = data.subscription
 
     try:
         existing = supabase.table('notification_preferences') \
@@ -192,7 +193,7 @@ def push_subscribe():
 @jwt_required()
 def push_unsubscribe():
     """Remove push subscription."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     try:
         supabase.table('notification_preferences') \
             .update({'push_subscription': None,
@@ -208,10 +209,12 @@ def push_unsubscribe():
 
 @notifications_bp.route('/notifications/test', methods=['POST'])
 @jwt_required()
+@validate_json(TestNotificationSchema)
 def test_notification():
     """Send a test notification to verify setup."""
-    user_id = get_jwt_identity()
-    channel = (request.get_json() or {}).get('channel', 'all')
+    user_id = get_current_user_id()
+    data = request.validated_data
+    channel = data.channel
     results = send_test_notification(user_id, channel)
     return jsonify({'message': 'Test sent', 'results': results}), 200
 
@@ -220,6 +223,6 @@ def test_notification():
 @jwt_required()
 def trigger_weekly_digest():
     """Manually trigger weekly digest (for testing)."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     send_weekly_digest(user_id)
     return jsonify({'message': 'Weekly digest sent'}), 200

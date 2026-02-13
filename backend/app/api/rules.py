@@ -11,6 +11,9 @@ from . import api_bp
 from ..supabase_client import supabase
 from ..models.yara_rule import YaraRule
 from ..services.yara_engine import YaraEngine
+from ..utils.auth import get_current_user_id
+from ..utils.validation import validate_json
+from ..schemas.rules import CreateRuleSchema, UpdateRuleSchema, ValidateRuleSchema
 
 logger = logging.getLogger('threatforge.rules')
 
@@ -27,7 +30,7 @@ CATEGORY_MAP = {
 @jwt_required()
 def list_rules():
     """List all YARA rules (user's own + builtin)."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     category = request.args.get('category')
 
     # Supabase query: user_id = me OR is_builtin = true
@@ -59,25 +62,16 @@ def list_rules():
 
 @api_bp.route('/rules', methods=['POST'])
 @jwt_required()
+@validate_json(CreateRuleSchema)
 def create_rule():
     """Create a new YARA rule."""
-    user_id = get_jwt_identity()
-    data = request.get_json()
+    user_id = get_current_user_id()
+    data = request.validated_data
 
-    if not data:
-        return jsonify({'error': 'Request body required'}), 400
-
-    name = data.get('name', '').strip()
-    rule_content = data.get('rule_content', '').strip()
-    category = data.get('category', 'custom')
-    severity = data.get('severity', 'medium')
-
-    if not name:
-        return jsonify({'error': 'Rule name is required'}), 400
-    if not rule_content:
-        return jsonify({'error': 'Rule content is required'}), 400
-    if severity not in ('critical', 'high', 'medium', 'low'):
-        return jsonify({'error': 'Severity must be critical, high, medium, or low'}), 400
+    name = data.name.strip()
+    rule_content = data.rule_content.strip()
+    category = data.category
+    severity = data.severity
 
     # Validate syntax
     validation = yara_engine.validate_rule(rule_content)
@@ -125,9 +119,10 @@ def create_rule():
 
 @api_bp.route('/rules/<rule_id>', methods=['PUT'])
 @jwt_required()
+@validate_json(UpdateRuleSchema)
 def update_rule(rule_id):
     """Update a YARA rule."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     
     # Check ownership
     try:
@@ -145,27 +140,23 @@ def update_rule(rule_id):
     if rule.get('user_id') != user_id:
         return jsonify({'error': 'Rule not owned by you'}), 403
 
-    data = request.get_json()
-    if not data:
-        return jsonify({'error': 'Request body required'}), 400
-
+    data = request.validated_data
+    
     updates = {'updated_at': datetime.now(timezone.utc).isoformat()}
 
-    if 'name' in data:
-        updates['name'] = data['name'].strip()
-    if 'category' in data:
-        updates['category'] = data['category']
-    if 'severity' in data:
-        if data['severity'] not in ('critical', 'high', 'medium', 'low'):
-            return jsonify({'error': 'Invalid severity'}), 400
-        updates['severity'] = data['severity']
-    if 'rule_content' in data:
-        validation = yara_engine.validate_rule(data['rule_content'])
+    if data.name:
+        updates['name'] = data.name.strip()
+    if data.category:
+        updates['category'] = data.category
+    if data.severity:
+        updates['severity'] = data.severity
+    if data.rule_content:
+        validation = yara_engine.validate_rule(data.rule_content)
         if not validation['valid']:
             return jsonify({'error': 'Invalid YARA syntax', 'details': validation['errors']}), 400
-        updates['rule_content'] = data['rule_content']
-    if 'is_enabled' in data:
-        updates['is_enabled'] = bool(data['is_enabled'])
+        updates['rule_content'] = data.rule_content
+    if data.is_enabled is not None:
+        updates['is_enabled'] = data.is_enabled
 
     try:
         supabase.table('yara_rules').update(updates).eq('id', rule_id).execute()
@@ -179,7 +170,7 @@ def update_rule(rule_id):
 @jwt_required()
 def delete_rule(rule_id):
     """Delete a YARA rule."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     
     # Check ownership
     try:
@@ -237,13 +228,11 @@ def test_rule(rule_id):
 
 @api_bp.route('/rules/validate', methods=['POST'])
 @jwt_required()
+@validate_json(ValidateRuleSchema)
 def validate_rule():
     """Validate YARA syntax without saving."""
-    data = request.get_json()
-    rule_content = data.get('rule_content', '') if data else ''
-
-    if not rule_content:
-        return jsonify({'error': 'rule_content is required'}), 400
+    data = request.validated_data
+    rule_content = data.rule_content
 
     result = yara_engine.validate_rule(rule_content)
     return jsonify(result), 200

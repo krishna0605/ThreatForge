@@ -14,6 +14,7 @@ from ..models.scan import ScanModel, ScanFileModel
 from ..models.finding import FindingModel, RuleMatchModel
 from ..services.scanner import ScanOrchestrator
 from ..utils.responses import success_response, error_response
+from ..utils.auth import get_current_user_id
 
 logger = logging.getLogger('threatforge.scans')
 
@@ -32,7 +33,7 @@ def allowed_file(filename):
 @jwt_required()
 def create_scan():
     """Create a new scan with file upload."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
 
     if 'file' not in request.files:
         return jsonify({'error': 'No file uploaded. Use form field name "file"'}), 400
@@ -266,7 +267,7 @@ def create_scan():
 @jwt_required()
 def list_scans():
     """List user's scans with pagination."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
 
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
@@ -333,7 +334,7 @@ def list_scans():
 @jwt_required()
 def get_scan(scan_id):
     """Get full scan details with findings."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     
     # Fetch scan, files, findings, and matches in parallel or joined query
     # Supabase Join: scan -> scan_files, scan -> findings -> rule_matches
@@ -399,7 +400,7 @@ def get_scan(scan_id):
 @jwt_required()
 def delete_scan(scan_id):
     """Delete a scan and its files."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     
     # Verify ownership before delete (RLS handles this too, but good to check for file deletion)
     try:
@@ -433,7 +434,7 @@ def delete_scan(scan_id):
 @jwt_required()
 def get_scan_report(scan_id):
     """Get formatted report data."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     
     try:
         # Re-use logic or query explicitly

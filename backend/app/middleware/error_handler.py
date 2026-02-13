@@ -1,30 +1,41 @@
-"""Global Error Handler"""
+import logging
+import traceback
 from flask import jsonify
+from werkzeug.exceptions import HTTPException
 
+logger = logging.getLogger('threatforge.error_handler')
 
 def register_error_handlers(app):
     """Register error handlers for the Flask app."""
 
-    @app.errorhandler(400)
-    def bad_request(error):
-        return jsonify({'error': 'Bad request', 'message': str(error)}), 400
+    @app.errorhandler(HTTPException)
+    def handle_http_exception(e):
+        """Handle standard HTTP exceptions."""
+        response = e.get_response()
+        # replace the body with JSON
+        response.data = jsonify({
+            "status": "error",
+            "message": e.description,
+            "code": e.code,
+            "name": e.name,
+        }).data
+        response.content_type = "application/json"
+        return response
 
-    @app.errorhandler(401)
-    def unauthorized(error):
-        return jsonify({'error': 'Unauthorized', 'message': 'Authentication required'}), 401
+    @app.errorhandler(Exception)
+    def handle_generic_exception(e):
+        """Handle unexpected exceptions."""
+        # Pass through HTTP exceptions
+        if isinstance(e, HTTPException):
+            return e
 
-    @app.errorhandler(403)
-    def forbidden(error):
-        return jsonify({'error': 'Forbidden', 'message': 'Insufficient permissions'}), 403
+        # Log the full traceback
+        logger.error(f"Unhandled exception: {e}\n{traceback.format_exc()}")
+        
+        # Return generic 500
+        return jsonify({
+            "status": "error",
+            "message": "An unexpected error occurred. Please try again later.",
+            "code": 500
+        }), 500
 
-    @app.errorhandler(404)
-    def not_found(error):
-        return jsonify({'error': 'Not found', 'message': 'Resource not found'}), 404
-
-    @app.errorhandler(429)
-    def rate_limited(error):
-        return jsonify({'error': 'Rate limited', 'message': 'Too many requests'}), 429
-
-    @app.errorhandler(500)
-    def internal_error(error):
-        return jsonify({'error': 'Internal server error', 'message': 'An unexpected error occurred'}), 500

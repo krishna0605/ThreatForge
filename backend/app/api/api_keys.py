@@ -10,6 +10,7 @@ import logging
 from . import api_bp
 from ..utils.responses import success_response, error_response
 from ..supabase_client import supabase
+from ..utils.auth import get_current_user_id
 
 logger = logging.getLogger('threatforge.api_keys')
 
@@ -21,7 +22,7 @@ def hash_key(key: str) -> str:
 @jwt_required()
 def create_api_key():
     """Generate a new API key."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     data = request.get_json() or {}
     label = data.get('label', 'Default Key')
 
@@ -72,7 +73,7 @@ def create_api_key():
 @jwt_required()
 def list_api_keys():
     """List user's API keys."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     try:
         res = supabase.table('api_keys').select('id, label, created_at, last_used_at, is_active')\
             .eq('user_id', user_id).order('created_at', desc=True).execute()
@@ -87,7 +88,7 @@ def list_api_keys():
 @jwt_required()
 def revoke_api_key(key_id):
     """Revoke (delete) an API key."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
     try:
         # Verify ownership
         count_res = supabase.table('api_keys').select('id', count='exact', head=True)\

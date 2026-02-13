@@ -5,6 +5,7 @@ import logging
 
 from . import api_bp
 from ..supabase_client import supabase
+from ..utils.auth import get_current_user_id
 
 logger = logging.getLogger('threatforge.threats')
 
@@ -26,7 +27,7 @@ def threat_feed():
 @jwt_required()
 def threat_map():
     """Get geo-located threat data for map visualization."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
 
     try:
         # Try to get real findings with details that may contain geo info
@@ -80,7 +81,7 @@ def threat_map():
 @jwt_required()
 def threat_origins():
     """Get top threat origins table data."""
-    user_id = get_jwt_identity()
+    user_id = get_current_user_id()
 
     try:
         # Get real findings count for user
