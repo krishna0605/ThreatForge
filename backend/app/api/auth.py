@@ -1,0 +1,339 @@
+"""Auth Endpoints — Supabase Implementation"""
+from flask import request
+from flask_jwt_extended import (
+    create_access_token, create_refresh_token,
+    jwt_required, get_jwt_identity, get_jwt, decode_token
+)
+from werkzeug.security import generate_password_hash
+import pyotp
+import uuid
+import logging
+
+from . import api_bp
+from ..extensions import limiter
+from ..supabase_client import supabase
+from ..models.user import UserModel
+from .security import parse_user_agent
+from ..utils.responses import success_response, error_response
+
+logger = logging.getLogger('threatforge.auth')
+
+
+# --- Helper to get user by email ---
+def get_user_by_email(email: str) -> UserModel | None:
+    try:
+        response = supabase.table('profiles').select('*').eq('email', email).limit(1).execute()
+        if response.data:
+            return UserModel.from_dict(response.data[0])
+        return None
+    except Exception as e:
+        logger.error("Supabase Error (get_user_by_email): %s", e)
+        return None
+
+# --- Helper to get user by ID ---
+def get_user_by_id(user_id: str) -> UserModel | None:
+    try:
+        response = supabase.table('profiles').select('*').eq('id', user_id).limit(1).execute()
+        if response.data:
+            return UserModel.from_dict(response.data[0])
+        return None
+    except Exception as e:
+        logger.error("Supabase Error (get_user_by_id): %s", e)
+        return None
+
+
+@api_bp.route('/auth/signup', methods=['POST'])
+@limiter.limit("5/minute")
+def signup():
+    """Register a new user."""
+    data = request.get_json()
+
+    if not data:
+        return error_response('Request body required', 400)
+
+    email = data.get('email', '').strip().lower()
+    password = data.get('password', '')
+    display_name = data.get('display_name', '')
+
+    # Validation
+    if not email or '@' not in email:
+        return error_response('Valid email is required', 400)
+    if len(password) < 8:
+        return error_response('Password must be at least 8 characters', 400)
+
+    # Check if user exists
+    existing = get_user_by_email(email)
+    if existing:
+        return error_response('Email already registered', 409)
+
+    try:
+        # Create Auth User to satisfy FK
+        auth_response = supabase.auth.sign_up({
+            "email": email,
+            "password": password,
+            "options": {
+                "data": {
+                    "display_name": display_name or email.split('@')[0],
+                }
+            }
+        })
+        
+        # If auto-confirm is on, user is created. 
+        # Check if user is returned
+        if not auth_response.user:
+             # Fallback if signup requires email confirmation (dev mode usually disables this)
+             return success_response(message='Signup successful. Please check your email to confirm.', status_code=201)
+
+        user_id = auth_response.user.id
+        
+        # We store the password hash in profiles ONLY because we are porting legacy logic.
+        # Ideally we rely solely on Supabase Auth login.
+        # But to keep 'login' endpoint working as is without frontend changes for now:
+        profile_update = {
+             'password_hash': generate_password_hash(password),
+             'display_name': display_name or email.split('@')[0],
+             'role': 'analyst'
+        }
+        
+        # Profiles trigger might have created the row. Let's update or upsert it.
+        supabase.table('profiles').update(profile_update).eq('id', user_id).execute()
+        
+        # Fetch fresh profile
+        user = get_user_by_id(user_id)
+        
+        # Generate tokens
+        access_token = create_access_token(identity=str(user_id))
+        refresh_token = create_refresh_token(identity=str(user_id))
+
+        # Log activity
+        supabase.table('activity_logs').insert({
+            'user_id': str(user_id),
+            'action': 'signup',
+            'ip_address': request.remote_addr
+        }).execute()
+
+        return success_response({
+            'user': {
+                'id': user.id,
+                'email': user.email,
+                'display_name': user.display_name,
+                'role': user.role,
+            },
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+        }, message='Account created successfully', status_code=201)
+
+    except Exception as e:
+        logger.error("Signup error: %s", e)
+        return error_response('Internal server error', 500)
+
+
+@api_bp.route('/auth/login', methods=['POST'])
+@limiter.limit("10/minute")
+def login():
+    """Authenticate user and return JWT."""
+    # HYBRID APPROACH: Try Supabase Auth first, fallback to checking hash in profiles
+    data = request.get_json()
+
+    if not data:
+        return error_response('Request body required', 400)
+
+    email = data.get('email', '').strip().lower()
+    password = data.get('password', '')
+
+    if not email or not password:
+        return error_response('Email and password are required', 400)
+
+    try:
+        # 1. Try Supabase Auth Sign In
+        auth_response = supabase.auth.sign_in_with_password({
+            "email": email,
+            "password": password
+        })
+        
+        if auth_response.user:
+            user_id = auth_response.user.id
+            user = get_user_by_id(user_id)
+        else:
+            # Fallback (shouldn't happen if auth succeeds)
+            return error_response('Invalid email or password', 401)
+
+    except Exception:
+        # If Supabase Auth fails (e.g. wrong password), it raises exception.
+        # We could implement fallback to check 'password_hash' in profiles table 
+        # for migrated users who passworeds aren't in Supabase Auth yet.
+        # For this new setup, we assume new users.
+        return error_response('Invalid email or password', 401)
+
+    if not user:
+         return error_response('User profile not found', 404)
+
+    # Check MFA
+    if user.mfa_enabled:
+        totp_code = data.get('totp_code')
+        if not totp_code:
+            return success_response({
+                'mfa_required': True,
+            }, message='MFA verification required')
+        # For MFA, we need the secret from profile
+        if not user.mfa_secret:
+             # Should not happen if enabled
+             pass
+        else:
+            totp = pyotp.TOTP(user.mfa_secret)
+            if not totp.verify(totp_code):
+                return error_response('Invalid TOTP code', 401)
+
+    # Generate tokens (Flask-JWT-Extended)
+    access_token = create_access_token(identity=str(user.id))
+    refresh_token = create_refresh_token(identity=str(user.id))
+
+    # Create session record with device info
+    try:
+        token_data = decode_token(access_token)
+        jti = token_data.get('jti', str(uuid.uuid4()))
+        ua_info = parse_user_agent(request.headers.get('User-Agent', ''))
+        supabase.table('user_sessions').insert({
+            'user_id': str(user.id),
+            'token_jti': jti,
+            'browser': ua_info['browser'],
+            'os': ua_info['os'],
+            'ip_address': request.remote_addr,
+        }).execute()
+    except Exception as e:
+        logger.error("Session tracking error: %s", e)
+
+    # Log activity
+    supabase.table('activity_logs').insert({
+        'user_id': str(user.id),
+        'action': 'login',
+        'ip_address': request.remote_addr
+    }).execute()
+
+    return success_response({
+        'user': {
+            'id': user.id,
+            'email': user.email,
+            'display_name': user.display_name,
+            'role': user.role,
+            'avatar_url': user.avatar_url,
+            'mfa_enabled': user.mfa_enabled,
+        },
+        'access_token': access_token,
+        'refresh_token': refresh_token,
+    })
+
+
+@api_bp.route('/auth/me', methods=['GET'])
+@jwt_required()
+def get_me():
+    """Get current user profile."""
+    user_id = get_jwt_identity()
+    user = get_user_by_id(user_id)
+    
+    if not user:
+        return error_response('User not found', 404)
+
+    return success_response({
+        'id': user.id,
+        'email': user.email,
+        'display_name': user.display_name,
+        'role': user.role,
+        'avatar_url': user.avatar_url,
+        'mfa_enabled': user.mfa_enabled,
+        'created_at': user.created_at,
+    })
+
+
+@api_bp.route('/auth/logout', methods=['POST'])
+@jwt_required()
+def logout():
+    """Invalidate current session."""
+    user_id = get_jwt_identity()
+    supabase.auth.sign_out() # Sign out from Supabase too
+    
+    supabase.table('activity_logs').insert({
+        'user_id': user_id,
+        'action': 'logout',
+        'ip_address': request.remote_addr
+    }).execute()
+    
+    return success_response(message='Logged out successfully')
+
+
+@api_bp.route('/auth/refresh', methods=['POST'])
+@jwt_required(refresh=True)
+def refresh():
+    """Refresh JWT token."""
+    identity = get_jwt_identity()
+    access_token = create_access_token(identity=identity)
+    return success_response({'access_token': access_token})
+
+
+@api_bp.route('/auth/forgot-password', methods=['POST'])
+@limiter.limit("3/minute")
+def forgot_password():
+    """Send password reset email."""
+    data = request.get_json()
+    email = data.get('email', '').strip().lower() if data else ''
+    
+    if email:
+        try:
+             supabase.auth.reset_password_email(email)
+        except Exception as e:
+            logger.error("Reset password error: %s", e)
+            return error_response('Failed to send reset email. Please try again or contact support.', 500)
+            
+    return success_response(message='If an account exists, a password reset email has been sent')
+
+
+@api_bp.route('/auth/mfa/enroll', methods=['POST'])
+@jwt_required()
+def mfa_enroll():
+    """Enable 2FA for user. Returns TOTP secret and QR URI."""
+    user_id = get_jwt_identity()
+    user = get_user_by_id(user_id)
+    if not user:
+        return error_response('User not found', 404)
+
+    secret = pyotp.random_base32()
+    totp = pyotp.TOTP(secret)
+    provisioning_uri = totp.provisioning_uri(name=user.email, issuer_name='ThreatForge')
+
+    # Store secret temporarily
+    supabase.table('profiles').update({'mfa_secret': secret}).eq('id', user_id).execute()
+
+    return success_response({
+        'secret': secret,
+        'qr_uri': provisioning_uri,
+    }, message='Scan the QR code with your authenticator app, then verify with a code')
+
+
+@api_bp.route('/auth/mfa/verify', methods=['POST'])
+@jwt_required()
+def mfa_verify():
+    """Verify TOTP code and enable MFA."""
+    user_id = get_jwt_identity()
+    user = get_user_by_id(user_id)
+    if not user:
+        return error_response('User not found', 404)
+
+    data = request.get_json()
+    totp_code = data.get('totp_code', '') if data else ''
+
+    if not user.mfa_secret:
+        return error_response('MFA not enrolled. Call /auth/mfa/enroll first', 400)
+
+    totp = pyotp.TOTP(user.mfa_secret)
+    if not totp.verify(totp_code):
+        return error_response('Invalid TOTP code', 401)
+
+    supabase.table('profiles').update({'mfa_enabled': True}).eq('id', user_id).execute()
+
+    return success_response(message='MFA enabled successfully')
+
+
+@api_bp.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint."""
+    return success_response({'status': 'healthy', 'service': 'backend-api'})

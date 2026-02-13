@@ -1,0 +1,8 @@
+# Model files directory
+# Trained model .pkl files will be stored here via Git LFS
+# Models are loaded by app.py on startup
+
+# Expected files:
+# - malware_classifier.pkl  (Random Forest / XGBoost)
+# - stego_detector.pkl      (Gradient Boosting)
+# - network_anomaly.pkl     (Isolation Forest)

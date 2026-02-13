@@ -1,0 +1,134 @@
+@import "tailwindcss";
+@config "../../tailwind.config.ts";
+
+/* ── Smooth scrolling ────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ── Design tokens ───────────────────────────── */
+:root {
+  --foreground-rgb: 20, 30, 44;
+  --background-rgb: 245, 247, 249;
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(0, 0, 0, 0.06);
+  --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.04);
+  --neon-green: 0, 143, 57;
+  --neon-blue: 0, 102, 204;
+}
+
+.dark {
+  --foreground-rgb: 230, 237, 243;
+  --background-rgb: 10, 14, 20;
+  --glass-bg: rgba(12, 18, 28, 0.65);
+  --glass-border: rgba(0, 143, 57, 0.12);
+  --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Custom Scrollbar ────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(var(--neon-green), 0.25);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--neon-green), 0.6);
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(var(--neon-green), 0.2);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--neon-green), 0.5);
+}
+
+/* ── CRT Overlay ─────────────────────────────── */
+.crt-overlay {
+  background: linear-gradient(
+      rgba(255,255,255,0) 50%,
+      rgba(0,0,0,0.015) 50%
+    ),
+    linear-gradient(90deg, rgba(255,0,0,0.02), rgba(0,255,0,0.008), rgba(0,0,255,0.02));
+  background-size: 100% 2px, 3px 100%;
+  pointer-events: none;
+}
+
+/* ── Glass Panel (core glassmorphism) ────────── */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  transition: box-shadow 0.4s ease, border-color 0.4s ease, background 0.4s ease;
+}
+.glass-panel:hover {
+  box-shadow: 0 8px 40px rgba(var(--neon-green), 0.06);
+  border-color: rgba(var(--neon-green), 0.15);
+}
+
+/* ── Box Corner Accents ──────────────────────── */
+.box-corner {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(var(--neon-green), 0.5);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 10;
+}
+.box-corner-tl { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+.box-corner-tr { top: -1px; right: -1px; border-left: none; border-bottom: none; }
+.box-corner-bl { bottom: -1px; left: -1px; border-right: none; border-top: none; }
+.box-corner-br { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+
+.hover-card:hover .box-corner {
+  width: 100%;
+  height: 100%;
+  border-color: rgba(var(--neon-blue), 0.3);
+  background: rgba(var(--neon-blue), 0.02);
+  z-index: 0;
+}
+
+/* ── Glitch Hover Text ───────────────────────── */
+.glitch-hover { transition: text-shadow 0.3s ease; }
+.glitch-hover:hover {
+  text-shadow: 2px 0 rgba(var(--neon-green), 0.7), -2px 0 rgba(var(--neon-blue), 0.7);
+}
+
+/* ── Tech Diagram Grid ───────────────────────── */
+.tech-diagram-grid {
+  background-image:
+    linear-gradient(rgba(var(--neon-green), 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--neon-green), 0.04) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* ── Cursor Blink ────────────────────────────── */
+.cursor-blink::after {
+  content: "_";
+  animation: blink 1s step-end infinite;
+  color: rgb(var(--neon-green));
+  margin-left: 2px;
+  font-weight: bold;
+}
+
+/* ── Neon Pulse Glow (reusable) ──────────────── */
+@keyframes neon-pulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(var(--neon-green), 0.15); }
+  50% { box-shadow: 0 0 16px rgba(var(--neon-green), 0.3); }
+}
+.neon-pulse { animation: neon-pulse 3s ease-in-out infinite; }
+
+/* ── Floating animation ──────────────────────── */
+@keyframes gentle-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.gentle-float { animation: gentle-float 4s ease-in-out infinite; }

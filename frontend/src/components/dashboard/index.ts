@@ -1,0 +1,10 @@
+export { default as Widget } from './Widget';
+export { default as CircularGauge } from './CircularGauge';
+export { default as SystemHealthWidget } from './SystemHealthWidget';
+export { default as ThreatDistributionWidget } from './ThreatDistributionWidget';
+export { default as ScanActivityWidget } from './ScanActivityWidget';
+export { default as SeverityBreakdownWidget } from './SeverityBreakdownWidget';
+export { default as RecentScansWidget } from './RecentScansWidget';
+export { default as SecurityActionsWidget } from './SecurityActionsWidget';
+export { default as ThreatMapWidget } from './ThreatMapWidget';
+export { default as ThreatOriginsWidget } from './ThreatOriginsWidget';

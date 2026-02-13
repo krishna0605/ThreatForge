@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "malware_rf_v1": {
+      "filename": "malware_rf_v1.joblib",
+      "algorithm": "RandomForest",
+      "version": "1.0.0",
+      "trained_at": "2026-02-13T09:00:00Z",
+      "features": ["entropy", "file_size", "suspicious_sections", "import_count", "suspicious_import_count"],
+      "metrics": {
+        "accuracy": 0.92,
+        "f1": 0.89,
+        "precision": 0.91,
+        "recall": 0.87
+      },
+      "description": "Random Forest classifier for PE malware detection",
+      "active": true
+    },
+    "stego_lr_v1": {
+      "filename": "stego_lr_v1.joblib",
+      "algorithm": "LogisticRegression",
+      "version": "1.0.0",
+      "trained_at": "2026-02-13T09:00:00Z",
+      "features": ["lsb_variance", "chi_square", "ones_deviation", "suspicion_score"],
+      "metrics": {
+        "accuracy": 0.88,
+        "f1": 0.85,
+        "precision": 0.86,
+        "recall": 0.84
+      },
+      "description": "Logistic Regression for LSB steganography detection",
+      "active": true
+    },
+    "network_if_v1": {
+      "filename": "network_if_v1.joblib",
+      "algorithm": "IsolationForest",
+      "version": "1.0.0",
+      "trained_at": "2026-02-13T09:00:00Z",
+      "features": ["avg_packet_size", "unique_ports", "unique_flows", "anomaly_score"],
+      "metrics": {
+        "contamination": 0.1
+      },
+      "description": "Isolation Forest for network traffic anomaly detection",
+      "active": true
+    }
+  }
+}

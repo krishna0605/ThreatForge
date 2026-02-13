@@ -1,0 +1,38 @@
+flask==3.1.0
+flask-cors==5.0.1
+flask-jwt-extended==4.7.1
+flask-limiter==3.12
+flask-socketio==5.5.1
+python-dotenv==1.0.1
+supabase==2.11.0
+requests==2.32.3
+PyYAML==6.0.2
+yara-python==4.5.1
+pefile==2024.8.26
+python-magic==0.4.27
+resend==2.7.0
+pywebpush==2.0.1
+pyotp==2.9.0
+gunicorn==23.0.0
+gevent==24.11.1
+redis==5.0.1
+# --- Test dependencies ---
+pytest==8.0.0
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+responses==0.24.1
+faker==22.0.0
+pydantic[email]>=2.0
+email-validator==2.1.0.post1
+
+# --- OpenTelemetry ---
+opentelemetry-api==1.22.0
+opentelemetry-sdk==1.22.0
+opentelemetry-instrumentation-flask==0.43b0
+opentelemetry-exporter-otlp==1.22.0
+
+# --- Prometheus ---
+prometheus-flask-exporter==0.23.0
+
+# --- Logging ---
+structlog==24.1.0
