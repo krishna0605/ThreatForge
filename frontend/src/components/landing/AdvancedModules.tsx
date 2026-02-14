@@ -113,7 +113,7 @@ export default function AdvancedModules() {
 
               {/* AI Core */}
               <div className="flex flex-col items-center relative">
-                <div className="absolute -inset-4 border border-dashed border-primary/30 rounded-full animate-[spin_20s_linear_infinite]" />
+                <div className="absolute -inset-4 border border-dashed border-primary/30 rounded-full orbit-rotate" />
                 <div className="w-16 h-16 rounded-full border-2 border-primary bg-primary/5 flex items-center justify-center mb-2 neon-pulse">
                   <span className="material-symbols-outlined text-primary text-3xl">shield_lock</span>
                 </div>

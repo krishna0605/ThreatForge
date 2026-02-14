@@ -24,7 +24,7 @@ export default function LandingPage() {
     <div className="min-h-screen relative overflow-x-hidden selection:bg-primary selection:text-white">
       {/* ── Grid Background ─── */}
       <div
-        className="fixed inset-0 pointer-events-none z-0"
+        className="fixed inset-0 pointer-events-none z-0 grid-fade-overlay"
         style={{
           backgroundImage: `
             linear-gradient(rgba(0,143,57,0.07) 1px, transparent 1px),
@@ -34,7 +34,7 @@ export default function LandingPage() {
         }}
       />
       <div
-        className="fixed inset-0 pointer-events-none z-0"
+        className="fixed inset-0 pointer-events-none z-0 grid-fade-overlay"
         style={{
           backgroundImage: `
             linear-gradient(rgba(0,143,57,0.025) 1px, transparent 1px),

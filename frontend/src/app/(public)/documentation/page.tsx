@@ -154,7 +154,7 @@ export default function DocumentationPage() {
   return (
     <div className="min-h-screen relative overflow-x-hidden selection:bg-primary selection:text-white">
       {/* Background */}
-      <div className="fixed inset-0 pointer-events-none z-0">
+      <div className="fixed inset-0 pointer-events-none z-0 grid-fade-overlay">
         <div className="absolute inset-0 bg-grid-pattern bg-grid-pattern-size opacity-40" />
         <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 80% 60% at 10% 20%, rgba(0,143,57,0.03), transparent)" }} />
         <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 70% 50% at 90% 80%, rgba(0,102,204,0.02), transparent)" }} />

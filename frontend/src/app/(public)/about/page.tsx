@@ -93,7 +93,7 @@ export default function AboutPage() {
     <div className="min-h-screen relative overflow-x-hidden selection:bg-primary selection:text-white">
       {/* ── Grid Background ─── */}
       <div
-        className="fixed inset-0 pointer-events-none z-0"
+        className="fixed inset-0 pointer-events-none z-0 grid-fade-overlay"
         style={{
           backgroundImage: `
             linear-gradient(rgba(0,143,57,0.07) 1px, transparent 1px),
@@ -103,7 +103,7 @@ export default function AboutPage() {
         }}
       />
       <div
-        className="fixed inset-0 pointer-events-none z-0"
+        className="fixed inset-0 pointer-events-none z-0 grid-fade-overlay"
         style={{
           backgroundImage: `
             linear-gradient(rgba(0,143,57,0.025) 1px, transparent 1px),
@@ -199,8 +199,8 @@ export default function AboutPage() {
             </motion.div>
 
             {/* Background accents */}
-            <div className="absolute top-20 right-10 w-32 h-32 border border-secondary/10 rounded-full animate-[spin_30s_linear_infinite] pointer-events-none" />
-            <div className="absolute bottom-20 left-10 w-48 h-48 border border-primary/10 rounded-full animate-[spin_40s_linear_infinite_reverse] pointer-events-none" />
+            <div className="absolute top-20 right-10 w-32 h-32 border border-secondary/10 rounded-full spin-slow pointer-events-none" />
+            <div className="absolute bottom-20 left-10 w-48 h-48 border border-primary/10 rounded-full spin-slow-reverse pointer-events-none" />
           </section>
 
           {/* ═══════════════ STATS BAR ═══════════════ */}
@@ -275,20 +275,17 @@ export default function AboutPage() {
                   <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 mt-4">
                     {/* Avatar */}
                     <div className="relative shrink-0">
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                        className="absolute -inset-2 rounded-full border border-dashed border-primary/30"
+                      <div
+                        className="absolute -inset-2 rounded-full border border-dashed border-primary/30 orbit-rotate"
                       />
-                      <motion.div
-                        animate={{ y: [0, -5, 0] }}
-                        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                      <div
                         className="w-24 h-24 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 border-2 border-primary/40 flex items-center justify-center"
+                        style={{ animation: 'icon-float 4s ease-in-out infinite', willChange: 'transform' }}
                       >
                         <span className="material-icons text-primary text-5xl drop-shadow-[0_0_12px_rgba(0,143,57,0.5)]">
                           {member.icon}
                         </span>
-                      </motion.div>
+                      </div>
                     </div>
 
                     {/* Info */}
@@ -347,15 +344,14 @@ export default function AboutPage() {
                   whileHover={{ y: -6, transition: { duration: 0.3 } }}
                   className="group glass-panel p-6 border border-gray-200 dark:border-gray-700/50 hover:border-primary/40 transition-all duration-300 cursor-default text-center"
                 >
-                  <motion.div
-                    animate={{ y: [0, -3, 0] }}
-                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: i * 0.4 }}
+                  <div
                     className={`w-14 h-14 rounded-2xl ${tech.bg} mx-auto mb-4 flex items-center justify-center`}
+                    style={{ animation: `icon-float 3s ease-in-out infinite ${i * 0.4}s`, willChange: 'transform' }}
                   >
                     <span className={`material-icons ${tech.color} text-2xl`}>
                       {tech.icon}
                     </span>
-                  </motion.div>
+                  </div>
                   <h4 className="font-display font-bold text-base text-text-main dark:text-white mb-1 group-hover:text-primary transition-colors duration-300">
                     {tech.name}
                   </h4>
@@ -403,10 +399,9 @@ export default function AboutPage() {
                     }`}
                   >
                     {/* Timeline dot */}
-                    <motion.div
-                      animate={{ scale: [1, 1.3, 1] }}
-                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: i * 0.5 }}
-                      className="absolute left-6 md:left-1/2 w-4 h-4 bg-primary rounded-full border-3 border-white dark:border-gray-900 -translate-x-2 mt-1 z-10 shadow-[0_0_16px_rgba(0,143,57,0.6)]"
+                    <div
+                      className="absolute left-6 md:left-1/2 w-4 h-4 bg-primary rounded-full border-3 border-white dark:border-gray-900 -translate-x-2 mt-1 z-10"
+                      style={{ animation: `dot-pulse 2s ease-in-out infinite ${i * 0.5}s`, willChange: 'transform, box-shadow' }}
                     />
 
                     {/* Content */}

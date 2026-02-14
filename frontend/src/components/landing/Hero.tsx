@@ -99,6 +99,7 @@ export default function Hero() {
                 className="material-icons text-sm"
                 animate={{ x: [0, 3, 0] }}
                 transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                style={{ willChange: 'transform' }}
               >
                 arrow_forward
               </motion.span>

@@ -126,7 +126,7 @@ export default function VisionPage() {
     <div className="min-h-screen relative overflow-x-hidden selection:bg-primary selection:text-white">
       {/* ── Grid Background ─── */}
       <div
-        className="fixed inset-0 pointer-events-none z-0"
+        className="fixed inset-0 pointer-events-none z-0 grid-fade-overlay"
         style={{
           backgroundImage: `
             linear-gradient(rgba(0,143,57,0.07) 1px, transparent 1px),
@@ -136,7 +136,7 @@ export default function VisionPage() {
         }}
       />
       <div
-        className="fixed inset-0 pointer-events-none z-0"
+        className="fixed inset-0 pointer-events-none z-0 grid-fade-overlay"
         style={{
           backgroundImage: `
             linear-gradient(rgba(0,143,57,0.025) 1px, transparent 1px),
@@ -232,8 +232,8 @@ export default function VisionPage() {
             </motion.div>
 
             {/* Background accent shapes */}
-            <div className="absolute top-20 left-10 w-32 h-32 border border-primary/10 rounded-full animate-[spin_30s_linear_infinite] pointer-events-none" />
-            <div className="absolute bottom-20 right-10 w-48 h-48 border border-secondary/10 rounded-full animate-[spin_40s_linear_infinite_reverse] pointer-events-none" />
+            <div className="absolute top-20 left-10 w-32 h-32 border border-primary/10 rounded-full spin-slow pointer-events-none" />
+            <div className="absolute bottom-20 right-10 w-48 h-48 border border-secondary/10 rounded-full spin-slow-reverse pointer-events-none" />
           </section>
 
           {/* ═══════════════ PILLARS ═══════════════ */}
@@ -273,23 +273,20 @@ export default function VisionPage() {
                     {/* Animated Icon Container */}
                     <div className="relative w-16 h-16 mb-6">
                       {/* Pulsing glow backdrop */}
-                      <motion.div
-                        animate={{ scale: [1, 1.3, 1], opacity: [0.15, 0.3, 0.15] }}
-                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: i * 0.5 }}
+                      <div
                         className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${pillar.gradient} blur-xl`}
+                        style={{ animation: `glow-pulse 3s ease-in-out infinite ${i * 0.5}s`, willChange: 'transform, opacity' }}
                       />
                       {/* Spinning orbit ring */}
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 12 + i * 4, repeat: Infinity, ease: "linear" }}
+                      <div
                         className={`absolute -inset-1 rounded-2xl border border-dashed ${pillar.borderColor} opacity-30 group-hover:opacity-70 transition-opacity duration-500`}
+                        style={{ animation: `orbit-rotate ${12 + i * 4}s linear infinite`, willChange: 'transform' }}
                       />
                       {/* Icon box */}
                       <motion.div
-                        animate={{ y: [0, -4, 0] }}
-                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: i * 0.3 }}
                         whileHover={{ scale: 1.15, rotate: 10 }}
                         className={`relative w-full h-full rounded-2xl border ${pillar.borderColor} bg-gradient-to-br ${pillar.gradient} flex items-center justify-center backdrop-blur-sm`}
+                        style={{ animation: `icon-float 3s ease-in-out infinite ${i * 0.3}s`, willChange: 'transform' }}
                       >
                         <span className={`material-icons ${pillar.iconColor} text-3xl drop-shadow-[0_0_8px_currentColor]`}>
                           {pillar.icon}
