@@ -1,57 +1,117 @@
 "use client";
 
 import Link from "next/link";
-import { motion, Variants } from "framer-motion";
-
-const container: Variants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.04, delayChildren: 0.1 } },
-};
-const fadeUp: Variants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" } },
-};
-
-const links = ["About", "GitHub", "Docs", "Privacy", "Terms"];
 
 export default function Footer() {
-  return (
-    <motion.footer
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, amount: 0.3 }}
-      variants={container}
-      className="py-10 mt-8 border-t border-gray-200 dark:border-gray-800 relative"
-    >
-      <div className="absolute -top-px left-0 w-2 h-2 border-l border-t border-primary/40" />
-      <div className="absolute -top-px right-0 w-2 h-2 border-r border-t border-primary/40" />
+  const currentYear = new Date().getFullYear();
 
-      <div className="flex flex-col md:flex-row justify-between items-center text-xs font-mono text-text-muted dark:text-gray-500">
-        <motion.div
-          variants={fadeUp}
-          className="flex flex-wrap justify-center gap-5 mb-3 md:mb-0"
-        >
-          <span className="text-primary font-bold text-[10px] tracking-wider">NAV:</span>
-          {links.map((link, i) => (
-            <motion.span key={link} variants={fadeUp} className="contents">
-              {i > 0 && <span className="text-gray-300 dark:text-gray-700">·</span>}
-              <Link
-                href="#"
-                className="hover:text-primary transition-colors duration-300 no-underline"
-              >
-                {link}
-              </Link>
-            </motion.span>
-          ))}
-        </motion.div>
-        <motion.div
-          variants={fadeUp}
-          className="text-[10px] opacity-60 flex items-center gap-2"
-        >
-          <span className="w-1.5 h-1.5 bg-green-600 rounded-full animate-pulse" />
-          © 2026 ThreatForge. All systems operational.
-        </motion.div>
+  return (
+    <footer className="relative mt-20 border-t border-gray-200 dark:border-primary/20 bg-gray-50/50 dark:bg-black/20 overflow-hidden">
+      {/* Abstract Background Elements */}
+      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+      <div className="absolute -left-20 top-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -right-20 bottom-0 w-64 h-64 bg-secondary/5 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="max-w-7xl mx-auto px-5 md:px-10 py-16">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-8">
+          {/* Brand Column */}
+          <div className="col-span-1 md:col-span-5 space-y-6">
+            <Link href="/" className="flex items-center gap-2 group w-fit no-underline">
+              <span className="material-icons text-primary text-2xl group-hover:rotate-180 transition-transform duration-500">
+                security
+              </span>
+              <span className="font-display font-bold text-xl tracking-wider text-text-main dark:text-white">
+                THREAT<span className="text-primary">FORGE</span>
+              </span>
+            </Link>
+            <p className="text-text-muted dark:text-gray-400 font-mono text-sm leading-relaxed max-w-sm">
+              Advanced AI-powered threat detection platform. Securing digital infrastructures with real-time anomaly detection and neural network analysis.
+            </p>
+            <div className="flex gap-4">
+               {/* Status Indicator */}
+               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/5 border border-primary/20 text-[10px] font-mono text-primary">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                </span>
+                SYSTEMS OPERATIONAL
+              </div>
+            </div>
+          </div>
+
+          {/* Navigation Columns */}
+          <div className="col-span-1 md:col-span-2 space-y-6">
+            <h4 className="font-display font-bold text-sm tracking-widest uppercase text-text-main dark:text-white">
+              Platform
+            </h4>
+            <ul className="space-y-3 font-mono text-sm text-text-muted dark:text-gray-400">
+              <li>
+                <Link href="#" className="hover:text-primary transition-colors no-underline">
+                  Vision
+                </Link>
+              </li>
+              <li>
+                <Link href="#" className="hover:text-primary transition-colors no-underline">
+                  About Us
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          <div className="col-span-1 md:col-span-2 space-y-6">
+            <h4 className="font-display font-bold text-sm tracking-widest uppercase text-text-main dark:text-white">
+              Resources
+            </h4>
+            <ul className="space-y-3 font-mono text-sm text-text-muted dark:text-gray-400">
+              <li>
+                <Link href="#" className="hover:text-primary transition-colors no-underline">
+                  Documentation
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          <div className="col-span-1 md:col-span-3 space-y-6">
+             <h4 className="font-display font-bold text-sm tracking-widest uppercase text-text-main dark:text-white">
+              Legal
+            </h4>
+             <ul className="space-y-3 font-mono text-sm text-text-muted dark:text-gray-400">
+              <li>
+                <Link href="#" className="hover:text-primary transition-colors no-underline">
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="#" className="hover:text-primary transition-colors no-underline">
+                  Terms of Service
+                </Link>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Bottom Bar */}
+        <div className="mt-16 pt-8 border-t border-gray-200 dark:border-gray-800 flex flex-col md:flex-row justify-between items-center gap-4 text-xs font-mono text-text-muted dark:text-gray-500">
+          <div>
+            &copy; {currentYear} ThreatForge. All rights reserved.
+          </div>
+          
+          <div className="flex items-center gap-6">
+            <span>
+              Made by <span className="text-text-main dark:text-gray-300 font-bold">Krishna Kapoor</span>
+            </span>
+             <Link
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 hover:text-primary transition-colors no-underline"
+            >
+              <span className="material-icons text-[14px]">open_in_new</span>
+              Portfolio
+            </Link>
+          </div>
+        </div>
       </div>
-    </motion.footer>
+    </footer>
   );
 }

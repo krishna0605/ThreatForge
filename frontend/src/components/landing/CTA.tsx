@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { motion } from "framer-motion";
 
 export default function CTA() {
@@ -54,15 +56,17 @@ export default function CTA() {
           transition={{ delay: 0.4, duration: 0.5 }}
           className="flex flex-col sm:flex-row justify-center items-center gap-4 relative z-10 mb-12"
         >
-          <motion.button
-            whileHover={{ y: -3, boxShadow: "0 12px 30px rgba(0,143,57,0.35)" }}
-            whileTap={{ scale: 0.97 }}
-            transition={{ type: "spring", stiffness: 400, damping: 20 }}
-            className="px-8 py-3 bg-primary text-white font-bold font-display uppercase tracking-widest text-sm w-full sm:w-auto overflow-hidden group/btn relative"
-          >
-            <span className="absolute inset-0 bg-white/10 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300" />
-            <span className="relative">Initialize Protection</span>
-          </motion.button>
+          <Link href="/signup" passHref legacyBehavior>
+            <motion.a
+              whileHover={{ y: -3, boxShadow: "0 12px 30px rgba(0,143,57,0.35)" }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+              className="px-8 py-3 bg-primary text-white font-bold font-display uppercase tracking-widest text-sm w-full sm:w-auto overflow-hidden group/btn relative inline-block cursor-pointer no-underline"
+            >
+              <span className="absolute inset-0 bg-white/10 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300" />
+              <span className="relative">Initialize Protection</span>
+            </motion.a>
+          </Link>
 
           <motion.button
             whileHover={{ y: -3, borderColor: "rgba(0,143,57,0.5)" }}

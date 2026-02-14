@@ -37,13 +37,13 @@ export default function Header() {
           <motion.span
             whileHover={{ rotate: 360 }}
             transition={{ duration: 0.6, ease: "easeInOut" }}
-            className="material-icons text-primary text-3xl block"
+            className="material-icons text-primary text-3xl block leading-none"
           >
             security
           </motion.span>
           <div className="absolute inset-0 blur-md bg-primary/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         </div>
-        <h1 className="font-display text-xl md:text-2xl font-bold tracking-[0.15em] uppercase text-text-main dark:text-white">
+        <h1 className="font-display text-xl md:text-2xl font-bold tracking-[0.15em] uppercase text-text-main dark:text-white leading-none mt-1">
           THREAT<span className="text-primary">FORGE</span>
         </h1>
       </Link>
