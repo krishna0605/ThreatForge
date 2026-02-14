@@ -205,8 +205,8 @@ GET    /metrics                      # Prometheus metrics`} />
             { iter: "Iteration 2", desc: "Unified temp_token: both auth methods generate temp_token when MFA pending → consistent flow" },
             { iter: "Iteration 3", desc: "Added Argon2id-hashed backup recovery codes stored as JSONB for account recovery" },
           ].map((item, i) => (
-            <motion.div key={i} initial={{ opacity: 0, x: -15 }} whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }} transition={{ delay: i * 0.1 }}
+            <motion.div key={i} initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.1 }} transition={{ delay: i * 0.06, duration: 0.35, ease: "easeOut" }}
               className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 dark:border-primary/10 bg-white dark:bg-black/20">
               <span className="font-mono text-[10px] text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full whitespace-nowrap mt-0.5">{item.iter}</span>
               <p className="text-sm text-text-muted dark:text-gray-400">{item.desc}</p>

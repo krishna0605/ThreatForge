@@ -43,14 +43,13 @@ export const Introduction = () => {
           ].map((layer, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1 }}
-              whileHover={{ y: -5 }}
-              className="p-6 rounded-xl bg-white dark:bg-black/20 border border-gray-200 dark:border-primary/10 hover:border-primary/30 transition-all duration-300 group"
+              viewport={{ once: true, amount: 0.1 }}
+              transition={{ delay: i * 0.06, duration: 0.35, ease: "easeOut" }}
+              className="p-6 rounded-xl bg-white dark:bg-black/20 border border-gray-200 dark:border-primary/10 hover:border-primary/30 hover:-translate-y-1 transition-all duration-200 will-change-transform group"
             >
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-200">
                 <span className={`material-icons ${layer.color}`}>{layer.icon}</span>
               </div>
               <h4 className="font-bold text-lg mb-2 text-text-main dark:text-white">{layer.title}</h4>
@@ -176,14 +175,13 @@ graph TD
           ].map((p, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, y: 15 }}
+              initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.08 }}
-              whileHover={{ y: -3 }}
-              className="glass-panel p-5 border border-primary/10 hover:border-primary/25 transition-all group"
+              viewport={{ once: true, amount: 0.1 }}
+              transition={{ delay: i * 0.05, duration: 0.35, ease: "easeOut" }}
+              className="glass-panel p-5 border border-primary/10 hover:border-primary/25 hover:-translate-y-0.5 transition-all duration-200 will-change-transform group"
             >
-              <span className="material-icons text-primary text-xl mb-3 block group-hover:scale-110 transition-transform">{p.icon}</span>
+              <span className="material-icons text-primary text-xl mb-3 block group-hover:scale-110 transition-transform duration-200">{p.icon}</span>
               <h4 className="font-display font-bold text-text-main dark:text-white mb-1">{p.title}</h4>
               <span className="font-mono text-[10px] text-primary uppercase tracking-widest">{p.sub}</span>
               <p className="text-sm text-text-muted dark:text-gray-400 mt-2">{p.desc}</p>

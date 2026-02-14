@@ -44,10 +44,10 @@ export const TimelineRoadmap = ({ phases }: TimelineRoadmapProps) => {
         return (
           <motion.div
             key={i}
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5, delay: i * 0.1 }}
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.1 }}
+            transition={{ duration: 0.35, delay: i * 0.06, ease: "easeOut" }}
             className="relative pl-10 pb-12 last:pb-0 group"
           >
             {/* Connecting line */}
@@ -57,11 +57,11 @@ export const TimelineRoadmap = ({ phases }: TimelineRoadmapProps) => {
             {/* Dot */}
             <div className={`absolute left-0 top-1 w-6 h-6 rounded-full border-2 ${s.dot} flex items-center justify-center`}>
               {phase.status === "completed" && (
-                <span className="material-icons text-white text-xs">check</span>
+                <span className="material-icons text-white text-sm leading-none">check</span>
               )}
             </div>
             {/* Content */}
-            <div className="glass-panel p-5 rounded-lg border border-gray-200 dark:border-primary/10 hover:border-primary/25 transition-all">
+            <div className="glass-panel p-5 rounded-lg border border-gray-200 dark:border-primary/10 hover:border-primary/25 transition-colors duration-200">
               <div className="flex items-center gap-3 mb-2 flex-wrap">
                 <span className="material-icons text-primary text-lg">{phase.icon}</span>
                 <h4 className="font-display font-bold text-text-main dark:text-white">{phase.title}</h4>

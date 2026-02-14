@@ -7,7 +7,7 @@ const groups = [
     name: "Frontend",
     items: [
       { name: "React 19.2.3", role: "UI Library", icon: "widgets", color: "text-blue-400" },
-      { name: "Next.js 16.1.6", role: "Framework", icon: "auto_awesome", color: "text-white" },
+      { name: "Next.js 16.1.6", role: "Framework", icon: "auto_awesome", color: "text-gray-800 dark:text-white" },
       { name: "Tailwind CSS 4", role: "Styling", icon: "palette", color: "text-cyan-400" },
       { name: "Framer Motion 12", role: "Animations", icon: "motion_photos_on", color: "text-purple-400" },
     ]
@@ -16,7 +16,7 @@ const groups = [
     name: "Backend",
     items: [
       { name: "Python 3.11", role: "Core Language", icon: "code", color: "text-yellow-400" },
-      { name: "Flask 3.1.0", role: "API Framework", icon: "api", color: "text-gray-300" },
+      { name: "Flask 3.1.0", role: "API Framework", icon: "api", color: "text-gray-500 dark:text-gray-300" },
       { name: "Gunicorn + Gevent", role: "WSGI Server", icon: "dns", color: "text-green-400" },
       { name: "Pydantic 2.x", role: "Validation", icon: "fact_check", color: "text-red-400" },
     ]
@@ -43,14 +43,15 @@ const groups = [
 
 export const TechStackCards = () => {
   return (
-    <div className="space-y-12">
+    <div className="space-y-10">
       {groups.map((group, groupIdx) => (
         <div key={group.name}>
-          <motion.h3 
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
+          <motion.h3
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
-            className="font-display font-bold text-xl text-text-main dark:text-white mb-6 flex items-center gap-3"
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="font-display font-bold text-xl text-text-main dark:text-white mb-5 flex items-center gap-3"
           >
             <span className="w-8 h-px bg-primary/30" />
             {group.name}
@@ -59,14 +60,13 @@ export const TechStackCards = () => {
             {group.items.map((item, i) => (
               <motion.div
                 key={item.name}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 12 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.05 + groupIdx * 0.1 }}
-                whileHover={{ y: -4, backgroundColor: "rgba(0, 143, 57, 0.05)" }}
-                className="glass-panel p-5 border border-gray-100 dark:border-primary/5 transition-all text-center group"
+                viewport={{ once: true, amount: 0.1 }}
+                transition={{ duration: 0.35, delay: i * 0.03, ease: "easeOut" }}
+                className="glass-panel p-5 border border-gray-100 dark:border-primary/5 text-center group hover:-translate-y-1 hover:border-primary/20 hover:bg-primary/[0.03] transition-all duration-200 will-change-transform"
               >
-                <span className={`material-icons ${item.color} text-2xl mb-3 block group-hover:scale-125 transition-transform`}>
+                <span className={`material-icons ${item.color} text-2xl mb-3 block group-hover:scale-110 transition-transform duration-200`}>
                   {item.icon}
                 </span>
                 <div className="font-display font-bold text-sm text-text-main dark:text-white mb-1">

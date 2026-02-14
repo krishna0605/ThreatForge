@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
+import { motion } from "framer-motion";
 
 interface CodeBlockProps {
   code: string;
@@ -19,7 +19,13 @@ export const CodeBlock = ({ code, language, title }: CodeBlockProps) => {
   };
 
   return (
-    <div className="my-8 rounded-lg overflow-hidden border border-gray-100 dark:border-primary/10 bg-[#0d1117] shadow-xl">
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.1 }}
+      transition={{ duration: 0.35, ease: "easeOut" }}
+      className="my-6 rounded-lg overflow-hidden border border-gray-100 dark:border-primary/10 bg-[#0d1117] shadow-xl"
+    >
       {/* Header */}
       <div className="px-4 py-2 bg-gray-900 flex justify-between items-center border-b border-gray-800">
         <div className="flex gap-1.5">
@@ -31,9 +37,9 @@ export const CodeBlock = ({ code, language, title }: CodeBlockProps) => {
           {title && <span className="text-gray-400">{title}</span>}
           {language}
         </div>
-        <button 
+        <button
           onClick={copyToClipboard}
-          className="text-gray-500 hover:text-white transition-colors"
+          className="text-gray-500 hover:text-white transition-colors duration-150"
         >
           <span className="material-icons text-sm">{copied ? "check" : "content_copy"}</span>
         </button>
@@ -45,6 +51,6 @@ export const CodeBlock = ({ code, language, title }: CodeBlockProps) => {
           <code>{code}</code>
         </pre>
       </div>
-    </div>
+    </motion.div>
   );
 };

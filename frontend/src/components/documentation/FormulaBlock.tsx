@@ -13,9 +13,9 @@ export const FormulaBlock = ({ formula, label, description }: FormulaBlockProps)
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
+      viewport={{ once: true, amount: 0.1 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="my-8 glass-panel rounded-xl p-6 border border-primary/10 text-center relative overflow-hidden"
+      className="my-6 glass-panel rounded-xl p-6 border border-primary/10 text-center relative overflow-hidden"
     >
       <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
       <span className="font-mono text-[9px] text-primary/60 uppercase tracking-[0.3em] block mb-3">{label}</span>

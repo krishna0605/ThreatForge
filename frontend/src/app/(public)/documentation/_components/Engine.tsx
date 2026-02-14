@@ -46,12 +46,11 @@ export const Engine = () => {
           ].map((s, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.05 }}
-              whileHover={{ y: -3 }}
-              className="p-4 rounded-lg border border-gray-200 dark:border-primary/10 bg-white dark:bg-black/20 hover:border-amber-500/30 transition-all group"
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.1 }}
+              transition={{ delay: i * 0.03, duration: 0.35, ease: "easeOut" }}
+              className="p-4 rounded-lg border border-gray-200 dark:border-primary/10 bg-white dark:bg-black/20 hover:border-amber-500/30 hover:-translate-y-0.5 transition-all duration-200 will-change-transform group"
             >
               <div className="flex items-center gap-2 mb-2">
                 <span className="font-mono text-[10px] text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full">STEP {s.step}</span>

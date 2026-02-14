@@ -12,11 +12,11 @@ interface DiagramFrameProps {
 export const DiagramFrame = ({ title, children, variant = "default" }: DiagramFrameProps) => {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 12 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.6 }}
-      className={`my-8 rounded-xl overflow-hidden border shadow-lg ${
+      viewport={{ once: true, amount: 0.1 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className={`my-6 rounded-xl overflow-hidden border shadow-lg ${
         variant === "dark"
           ? "border-gray-700 bg-[#0d1117]"
           : "border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0d1117]"
@@ -27,9 +27,9 @@ export const DiagramFrame = ({ title, children, variant = "default" }: DiagramFr
           {title}
         </span>
         <div className="flex gap-2">
-          <div className="w-3 h-3 rounded-full bg-red-400/20 border border-red-400/50" />
-          <div className="w-3 h-3 rounded-full bg-yellow-400/20 border border-yellow-400/50" />
-          <div className="w-3 h-3 rounded-full bg-green-400/20 border border-green-400/50" />
+          <div className="w-3 h-3 rounded-full bg-red-400/40 border border-red-400/50" />
+          <div className="w-3 h-3 rounded-full bg-yellow-400/40 border border-yellow-400/50" />
+          <div className="w-3 h-3 rounded-full bg-green-400/40 border border-green-400/50" />
         </div>
       </div>
       <div className="p-4">{children}</div>

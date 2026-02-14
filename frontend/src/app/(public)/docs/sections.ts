@@ -155,7 +155,7 @@ export const docSections: DocSection[] = [
   {
     slug: "observability",
     title: "Observability",
-    icon: "monitoring",
+    icon: "analytics",
     description: "Three pillars: traces, metrics, logs with Grafana and Prometheus.",
     color: "text-teal-500",
     gradient: "from-teal-500 to-emerald-500",

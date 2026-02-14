@@ -385,8 +385,8 @@ graph TD
             { domain: "Communication", tables: "notifications, notification_prefs", icon: "notifications" },
             { domain: "Collaboration", tables: "shared_reports", icon: "share" },
           ].map((d, i) => (
-            <motion.div key={i} initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
-              transition={{ delay: i * 0.05 }}
+            <motion.div key={i} initial={{ opacity: 0, y: 8 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.1 }}
+              transition={{ delay: i * 0.04, duration: 0.3, ease: "easeOut" }}
               className="p-3 rounded-lg border border-gray-200 dark:border-primary/10 bg-white dark:bg-black/20">
               <span className="material-icons text-primary text-sm mb-1 block">{d.icon}</span>
               <div className="font-display font-bold text-xs text-text-main dark:text-white">{d.domain}</div>
