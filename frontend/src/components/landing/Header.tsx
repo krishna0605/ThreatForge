@@ -53,8 +53,8 @@ export default function Header() {
         <div className="flex items-center gap-2 px-3 py-2 rounded-full border border-gray-200 dark:border-gray-700/50 bg-white/50 dark:bg-white/[0.03] backdrop-blur-sm">
           {[
             { label: "Vision", href: "/vision" },
-            { label: "About Us", href: "#" },
-            { label: "Documentation", href: "#" },
+            { label: "About Us", href: "/about" },
+            { label: "Documentation", href: "/docs" },
           ].map((item) => (
             <Link
               key={item.label}
