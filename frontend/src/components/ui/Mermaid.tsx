@@ -1,16 +1,16 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState, useId } from 'react';
 import mermaid from 'mermaid';
 
 mermaid.initialize({
   startOnLoad: false,
   theme: 'dark',
   themeVariables: {
-    primaryColor: '#008f39',
+    primaryColor: '#008f39', // Forest Green/Tech Green
     primaryTextColor: '#fff',
     primaryBorderColor: '#008f39',
-    lineColor: '#0066cc',
+    lineColor: '#0066cc', // Tech Blue
     secondaryColor: '#0066cc',
     tertiaryColor: '#1a202c',
     fontFamily: 'JetBrains Mono, monospace',
@@ -25,7 +25,8 @@ interface MermaidProps {
 
 const Mermaid: React.FC<MermaidProps> = ({ chart, id }) => {
   const [svg, setSvg] = useState<string>('');
-  const elementId = id || `mermaid-${Math.random().toString(36).substring(2, 9)}`;
+  const generatedId = useId(); 
+  const elementId = id || `mermaid-${generatedId.replace(/:/g, '')}`; 
 
   useEffect(() => {
     const renderChart = async () => {

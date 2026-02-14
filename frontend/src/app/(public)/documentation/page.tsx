@@ -11,8 +11,9 @@ import { TechStackCards } from "@/components/documentation/TechStackCards";
 import { TableOfContents } from "@/components/documentation/TableOfContents";
 import { CodeBlock } from "@/components/documentation/CodeBlock";
 
+import Link from "next/link";
+
 export default function DocumentationPage() {
-  const containerRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
   
   const { scrollYProgress } = useScroll({
@@ -130,7 +131,7 @@ graph TD
                     code="Detect(File) = P(Malicious | Features(File)) > τ (tau)"
                   />
                   <p>
-                    ThreatForge achieves an AUC of <strong>0.97</strong>, adhering to <strong>Kerckhoffs's Principle</strong> — the system's security should depend on its keys, not on the obscurity of its design.
+                    ThreatForge achieves an AUC of <strong>0.97</strong>, adhering to <strong>Kerckhoffs&apos;s Principle</strong> — the system&apos;s security should depend on its keys, not on the obscurity of its design.
                   </p>
                 </div>
                 <Mermaid chart={`
@@ -310,9 +311,6 @@ erDiagram
                   <div className="glass-panel p-6 border border-secondary/15 bg-secondary/5">
                     <span className="material-icons text-secondary mb-3">vpn_key</span>
                     <h4 className="font-display font-bold text-text-main dark:text-white mb-2">TOTP MFA</h4>
-                    <p className="font-mono text-xs text-text-muted dark:text-gray-400">
-                      RFC 6238 implementation. Time-based codes expire every 30 seconds for maximum security.
-                    </p>
                   </div>
                 </div>
                 <Mermaid chart={`
@@ -332,6 +330,7 @@ sequenceDiagram
     API->>DB: INSERT session
     API-->>User: {access_token, refresh_token}
                 `} />
+
               </DocSection>
 
               <DocSection id="scanning-engine">
@@ -361,6 +360,13 @@ sequenceDiagram
                     </div>
                   ))}
                 </div>
+                
+                <div className="mt-12 text-center">
+                  <Link href="/" className="inline-flex items-center justify-center px-8 py-3 text-base font-medium text-white bg-primary hover:bg-primary-dark rounded-md transition-colors duration-200 shadow-lg hover:shadow-xl">
+                    Return to Dashboard
+                  </Link>
+                </div>
+
               </DocSection>
 
               <DocSection id="machine-learning">
@@ -427,8 +433,8 @@ gantt
                      ThreatForge v5.0.0 — Exhaustive Theoretical Edition
                    </p>
                    <div className="inline-flex gap-4">
-                      <a href="/" className="px-6 py-2 bg-primary text-white font-mono text-xs tracking-widest hover:bg-primary/90 transition-all uppercase">Back to Terminal</a>
-                      <a href="/about" className="px-6 py-2 border border-primary text-primary font-mono text-xs tracking-widest hover:bg-primary/5 transition-all uppercase">View Team</a>
+                      <Link href="/" className="px-6 py-2 bg-primary text-white font-mono text-xs tracking-widest hover:bg-primary/90 transition-all uppercase">Back to Terminal</Link>
+                      <Link href="/about" className="px-6 py-2 border border-primary text-primary font-mono text-xs tracking-widest hover:bg-primary/5 transition-all uppercase">View Team</Link>
                    </div>
                 </div>
               </DocSection>

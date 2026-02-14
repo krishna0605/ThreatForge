@@ -1,7 +1,7 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
+
 
 const sections = [
   { id: "executive-summary", label: "Executive Summary" },
@@ -68,11 +68,12 @@ export const TableOfContents = () => {
             <a
               href={`#${section.id}`}
               onClick={(e) => handleClick(e, section.id)}
-              className={`group flex items-center gap-3 transition-all duration-300 ${
-                activeId === section.id
-                  ? "text-primary translate-x-1"
-                  : "text-text-muted dark:text-gray-500 hover:text-text-main dark:hover:text-white"
-              }`}
+                className={`
+                  block text-sm py-1 transition-colors duration-200
+                  ${activeId === section.id 
+                    ? "text-primary font-medium" 
+                    : "text-text-muted dark:text-gray-500 hover:text-text-main dark:hover:text-gray-300"}
+                `}
             >
               <div className={`h-1.5 transition-all duration-300 rounded-full ${
                 activeId === section.id ? "w-6 bg-primary" : "w-2 bg-gray-200 dark:bg-gray-800 group-hover:bg-primary/40"
