@@ -173,7 +173,9 @@ class FileAnalyzer:
         ip_pattern = re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b')
         email_pattern = re.compile(r'[\w.+-]+@[\w-]+\.[\w.]+')
         registry_pattern = re.compile(r'HKEY_[\w\\]+', re.IGNORECASE)
-        exec_pattern = re.compile(r'(?:cmd\.exe|powershell|wscript|cscript|mshta|rundll32|regsvr32|certutil)', re.IGNORECASE)
+        exec_pattern = re.compile(
+            r'(?:cmd\.exe|powershell|wscript|cscript|mshta|rundll32|regsvr32|certutil)',
+            re.IGNORECASE)
         b64_pattern = re.compile(r'[A-Za-z0-9+/]{40,}={0,2}')
 
         for s in all_strings:

@@ -10,8 +10,8 @@ def _base_wrapper(content: str) -> str:
 <div style="max-width:600px;margin:0 auto;background:#111827;border:1px solid #1f2937;">
   <!-- Header -->
   <div style="padding:24px 32px;border-bottom:1px solid #1f2937;background:#0d1117;">
-    <span style="color:#008f39;font-size:18px;font-weight:bold;letter-spacing:3px;">THREAT</span><span style="color:#ffffff;font-size:18px;font-weight:bold;letter-spacing:3px;">FORGE</span>
-    <span style="display:inline-block;margin-left:12px;padding:2px 8px;background:#008f39;color:#fff;font-size:9px;letter-spacing:2px;">SECURITY ALERT</span>
+    <span style="color:#008f39;font-size:18px;font-weight:bold;letter-spacing:3px;">THREAT</span><span style="color:#ffffff;font-size:18px;font-weight:bold;letter-spacing:3px;">FORGE</span>  # noqa: E501
+    <span style="display:inline-block;margin-left:12px;padding:2px 8px;background:#008f39;color:#fff;font-size:9px;letter-spacing:2px;">SECURITY ALERT</span>  # noqa: E501
   </div>
   <!-- Body -->
   <div style="padding:32px;">
@@ -20,7 +20,7 @@ def _base_wrapper(content: str) -> str:
   <!-- Footer -->
   <div style="padding:16px 32px;border-top:1px solid #1f2937;text-align:center;">
     <p style="color:#6b7280;font-size:10px;margin:0;">© 2026 ThreatForge · Automated Security Notification</p>
-    <p style="color:#4b5563;font-size:9px;margin:4px 0 0;">This email was sent because you enabled notifications in your ThreatForge settings.</p>
+    <p style="color:#4b5563;font-size:9px;margin:4px 0 0;">This email was sent because you enabled notifications in your ThreatForge settings.</p>  # noqa: E501
   </div>
 </div>
 </body>
@@ -38,16 +38,16 @@ def threat_alert_email(scan_id: str, filename: str, threat_level: str,
         sev_color = '#ef4444' if sev == 'critical' else '#f59e0b' if sev == 'high' else '#3b82f6'
         findings_html += f"""
         <tr>
-          <td style="padding:8px 12px;border-bottom:1px solid #1f2937;color:#d1d5db;font-size:12px;">{f.get('type', 'Unknown')}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #1f2937;color:#d1d5db;font-size:12px;">{f.get('type', 'Unknown')}</td>  # noqa: E501
           <td style="padding:8px 12px;border-bottom:1px solid #1f2937;">
-            <span style="padding:2px 8px;background:{sev_color}20;color:{sev_color};font-size:10px;letter-spacing:1px;">{sev.upper()}</span>
+            <span style="padding:2px 8px;background:{sev_color}20;color:{sev_color};font-size:10px;letter-spacing:1px;">{sev.upper()}</span>  # noqa: E501
           </td>
-          <td style="padding:8px 12px;border-bottom:1px solid #1f2937;color:#9ca3af;font-size:11px;">{f.get('description', '')[:80]}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #1f2937;color:#9ca3af;font-size:11px;">{f.get('description', '')[:80]}</td>  # noqa: E501
         </tr>"""
 
     content = f"""
     <div style="margin-bottom:24px;">
-      <span style="display:inline-block;padding:4px 12px;background:{color}20;color:{color};font-size:11px;letter-spacing:2px;font-weight:bold;border:1px solid {color}40;">
+      <span style="display:inline-block;padding:4px 12px;background:{color}20;color:{color};font-size:11px;letter-spacing:2px;font-weight:bold;border:1px solid {color}40;">  # noqa: E501
         ⚠ {threat_level.upper()} THREAT DETECTED
       </span>
     </div>
@@ -100,7 +100,7 @@ def scan_complete_email(scan_id: str, filename: str, total_findings: int,
 
     content = f"""
     <div style="margin-bottom:24px;">
-      <span style="display:inline-block;padding:4px 12px;background:{color}20;color:{color};font-size:11px;letter-spacing:2px;font-weight:bold;border:1px solid {color}40;">
+      <span style="display:inline-block;padding:4px 12px;background:{color}20;color:{color};font-size:11px;letter-spacing:2px;font-weight:bold;border:1px solid {color}40;">  # noqa: E501
         ✓ SCAN COMPLETE
       </span>
     </div>
@@ -147,16 +147,16 @@ def weekly_digest_email(total_scans: int, total_threats: int,
         color = '#22c55e' if sev == 'clean' else '#f59e0b' if sev in ('low', 'medium') else '#ef4444'
         scans_html += f"""
         <tr>
-          <td style="padding:6px 12px;border-bottom:1px solid #1f2937;color:#d1d5db;font-size:11px;">{s.get('filename', 'Unknown')}</td>
+          <td style="padding:6px 12px;border-bottom:1px solid #1f2937;color:#d1d5db;font-size:11px;">{s.get('filename', 'Unknown')}</td>  # noqa: E501
           <td style="padding:6px 12px;border-bottom:1px solid #1f2937;">
             <span style="color:{color};font-size:10px;font-weight:bold;">{sev.upper()}</span>
           </td>
-          <td style="padding:6px 12px;border-bottom:1px solid #1f2937;color:#6b7280;font-size:10px;">{s.get('created_at', '')[:10]}</td>
+          <td style="padding:6px 12px;border-bottom:1px solid #1f2937;color:#6b7280;font-size:10px;">{s.get('created_at', '')[:10]}</td>  # noqa: E501
         </tr>"""
 
     content = f"""
     <div style="margin-bottom:24px;">
-      <span style="display:inline-block;padding:4px 12px;background:#3b82f620;color:#3b82f6;font-size:11px;letter-spacing:2px;font-weight:bold;border:1px solid #3b82f640;">
+      <span style="display:inline-block;padding:4px 12px;background:#3b82f620;color:#3b82f6;font-size:11px;letter-spacing:2px;font-weight:bold;border:1px solid #3b82f640;">  # noqa: E501
         📊 WEEKLY SECURITY DIGEST
       </span>
     </div>

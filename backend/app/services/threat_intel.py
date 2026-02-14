@@ -34,7 +34,11 @@ class ThreatIntelService:
                 'is_malicious': is_malicious,
                 'reputation_score': random.randint(0, 100) if is_malicious else 0,
                 'reports': [
-                    {'source': 'Simulation', 'detected_at': datetime.now(timezone.utc).isoformat(), 'category': 'Brute Force'}
+                    {
+                        'source': 'Simulation',
+                        'detected_at': datetime.now(timezone.utc).isoformat(),
+                        'category': 'Brute Force'
+                    }
                 ] if is_malicious else [],
                 'last_seen': datetime.now(timezone.utc).isoformat() if is_malicious else None
             }
@@ -47,7 +51,9 @@ class ThreatIntelService:
             return {
                 'hash': file_hash,
                 'is_malicious': is_malicious,
-                'malware_family': random.choice(['Emotet', 'TrickBot', 'CobaltStrike', 'None']) if is_malicious else None,
+                'malware_family': random.choice(
+                    ['Emotet', 'TrickBot', 'CobaltStrike', 'None']
+                ) if is_malicious else None,
                 'reports': [
                     {'source': 'Simulation', 'detected_at': datetime.now(timezone.utc).isoformat()}
                 ] if is_malicious else []

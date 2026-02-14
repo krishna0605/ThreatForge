@@ -65,6 +65,7 @@ class TestingConfig(Config):
     ML_SERVICE_URL = 'http://localhost:7860'
     MAX_CONTENT_LENGTH = 1 * 1024 * 1024  # 1MB for tests
 
+
 config_by_name = {
     'development': DevelopmentConfig,
     'production': ProductionConfig,
