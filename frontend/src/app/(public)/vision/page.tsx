@@ -270,13 +270,32 @@ export default function VisionPage() {
                   <div className={`absolute inset-0 bg-gradient-to-br ${pillar.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
 
                   <div className="relative z-10">
-                    <motion.span
-                      whileHover={{ rotate: 360 }}
-                      transition={{ duration: 0.6 }}
-                      className={`material-icons ${pillar.iconColor} text-4xl mb-5 block`}
-                    >
-                      {pillar.icon}
-                    </motion.span>
+                    {/* Animated Icon Container */}
+                    <div className="relative w-16 h-16 mb-6">
+                      {/* Pulsing glow backdrop */}
+                      <motion.div
+                        animate={{ scale: [1, 1.3, 1], opacity: [0.15, 0.3, 0.15] }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: i * 0.5 }}
+                        className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${pillar.gradient} blur-xl`}
+                      />
+                      {/* Spinning orbit ring */}
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 12 + i * 4, repeat: Infinity, ease: "linear" }}
+                        className={`absolute -inset-1 rounded-2xl border border-dashed ${pillar.borderColor} opacity-30 group-hover:opacity-70 transition-opacity duration-500`}
+                      />
+                      {/* Icon box */}
+                      <motion.div
+                        animate={{ y: [0, -4, 0] }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: i * 0.3 }}
+                        whileHover={{ scale: 1.15, rotate: 10 }}
+                        className={`relative w-full h-full rounded-2xl border ${pillar.borderColor} bg-gradient-to-br ${pillar.gradient} flex items-center justify-center backdrop-blur-sm`}
+                      >
+                        <span className={`material-icons ${pillar.iconColor} text-3xl drop-shadow-[0_0_8px_currentColor]`}>
+                          {pillar.icon}
+                        </span>
+                      </motion.div>
+                    </div>
                     <h3 className="text-xl font-display font-bold text-text-main dark:text-white mb-3 group-hover:text-primary transition-colors duration-300">
                       {pillar.title}
                     </h3>
