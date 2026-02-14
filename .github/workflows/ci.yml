@@ -57,7 +57,6 @@ jobs:
       - run: npm ci
       - run: npm test -- --coverage --watchAll=false
     env:
-      NEXT_PUBLIC_API_URL: http://localhost:5000
       NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
       NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
 
@@ -91,6 +90,7 @@ jobs:
       - run: pytest tests/ -v --tb=short --cov=app --cov-report=term-missing --cov-fail-under=80
     env:
       FLASK_ENV: testing
+      PYTHONPATH: .
       SUPABASE_URL: http://localhost:54321
       SUPABASE_KEY: test-anon-key
       JWT_SECRET_KEY: test-jwt-secret-key-for-ci
