@@ -103,17 +103,18 @@ export default function Hero() {
           </span>
         </motion.button>
 
-        <motion.button
+        <motion.a
+          href="https://threatforge.notion.site/user_guide-307c54ff4fff807485b9e2b5f522cfaa?source=copy_link"
+          target="_blank"
+          rel="noopener noreferrer"
           whileHover={{ y: -3, borderColor: "rgba(0,102,204,0.6)" }}
           whileTap={{ scale: 0.97 }}
           transition={{ type: "spring", stiffness: 400, damping: 20 }}
-          className="px-10 py-4 bg-white/80 dark:bg-transparent text-primary dark:text-white border border-gray-300 dark:border-gray-600 font-bold font-display uppercase tracking-widest text-sm hover:text-secondary dark:hover:text-secondary hover:border-secondary transition-colors duration-300"
+          className="px-10 py-4 bg-white/80 dark:bg-transparent text-primary dark:text-white border border-gray-300 dark:border-gray-600 font-bold font-display uppercase tracking-widest text-sm hover:text-secondary dark:hover:text-secondary hover:border-secondary transition-colors duration-300 flex items-center gap-2"
         >
-          <span className="flex items-center gap-2">
-            <span className="material-icons text-sm">play_circle</span>
-            View Demo
-          </span>
-        </motion.button>
+          <span className="material-icons text-sm">menu_book</span>
+          View User Guide
+        </motion.a>
       </motion.div>
     </section>
   );

@@ -5,7 +5,7 @@
 ### AI-Powered Threat Detection Platform
 
 [![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-threat--forge.vercel.app-00C853?style=for-the-badge&logo=vercel&logoColor=white)](https://threat-forge.vercel.app/)
-[![Documentation](https://img.shields.io/badge/📚_Documentation-Notion-000000?style=for-the-badge&logo=notion&logoColor=white)](https://threatforge.notion.site/)
+[![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-threat--forge.vercel.app-00C853?style=for-the-badge&logo=vercel&logoColor=white)](https://threat-forge.vercel.app/)
 
 <br/>
 
