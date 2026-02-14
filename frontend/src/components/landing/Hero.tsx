@@ -85,12 +85,12 @@ export default function Hero() {
         transition={{ duration: 0.5, delay: 0.6 }}
         className="flex flex-col sm:flex-row justify-center gap-4"
       >
-        <Link href="/signup" passHref legacyBehavior>
-          <motion.a
+        <Link href="/signup" className="no-underline">
+          <motion.div
             whileHover={{ y: -3, boxShadow: "0 12px 30px rgba(0,143,57,0.35)" }}
             whileTap={{ scale: 0.97 }}
             transition={{ type: "spring", stiffness: 400, damping: 20 }}
-            className="relative px-10 py-4 bg-primary text-white font-bold font-display uppercase tracking-widest text-sm overflow-hidden group inline-flex items-center justify-center cursor-pointer no-underline"
+            className="relative px-10 py-4 bg-primary text-white font-bold font-display uppercase tracking-widest text-sm overflow-hidden group inline-flex items-center justify-center cursor-pointer"
           >
             <span className="absolute inset-0 bg-gradient-to-r from-primary via-emerald-500 to-primary bg-[length:200%_100%] group-hover:animate-[shimmer_1.5s_linear_infinite] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             <span className="relative flex items-center gap-2">
@@ -103,7 +103,7 @@ export default function Hero() {
                 arrow_forward
               </motion.span>
             </span>
-          </motion.a>
+          </motion.div>
         </Link>
 
         <motion.a
