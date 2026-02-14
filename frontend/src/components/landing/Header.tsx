@@ -50,16 +50,16 @@ export default function Header() {
 
       {/* Navigation */}
       <nav className="hidden md:flex items-center">
-        <div className="flex items-center gap-1 px-4 py-1.5 rounded-full border border-gray-200 dark:border-gray-700/50 bg-white/50 dark:bg-white/[0.03] backdrop-blur-sm">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-full border border-gray-200 dark:border-gray-700/50 bg-white/50 dark:bg-white/[0.03] backdrop-blur-sm">
           {[
             { label: "Vision", href: "#" },
             { label: "About Us", href: "#" },
             { label: "Documentation", href: "#" },
-          ].map((item, i) => (
+          ].map((item) => (
             <Link
               key={item.label}
               href={item.href}
-              className="px-4 py-1.5 rounded-full text-xs font-mono font-medium tracking-wide text-text-muted dark:text-gray-400 hover:text-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-300 no-underline"
+              className="px-5 py-2 rounded-full text-sm font-mono font-medium tracking-wide text-text-muted dark:text-gray-400 hover:text-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-300 no-underline whitespace-nowrap"
             >
               {item.label}
             </Link>
