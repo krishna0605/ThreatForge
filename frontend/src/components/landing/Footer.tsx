@@ -44,7 +44,7 @@ export default function Footer() {
             <h4 className="font-display font-bold text-sm tracking-widest uppercase text-text-main dark:text-white">
               Platform
             </h4>
-            <ul className="space-y-3 font-mono text-sm text-text-muted dark:text-gray-400">
+            <ul className="space-y-4 font-mono text-sm text-text-muted dark:text-gray-400">
               <li>
                 <Link href="#" className="hover:text-primary transition-colors no-underline">
                   Vision
@@ -62,7 +62,7 @@ export default function Footer() {
             <h4 className="font-display font-bold text-sm tracking-widest uppercase text-text-main dark:text-white">
               Resources
             </h4>
-            <ul className="space-y-3 font-mono text-sm text-text-muted dark:text-gray-400">
+            <ul className="space-y-4 font-mono text-sm text-text-muted dark:text-gray-400">
               <li>
                 <Link href="#" className="hover:text-primary transition-colors no-underline">
                   Documentation
@@ -75,7 +75,7 @@ export default function Footer() {
              <h4 className="font-display font-bold text-sm tracking-widest uppercase text-text-main dark:text-white">
               Legal
             </h4>
-             <ul className="space-y-3 font-mono text-sm text-text-muted dark:text-gray-400">
+             <ul className="space-y-4 font-mono text-sm text-text-muted dark:text-gray-400">
               <li>
                 <Link href="#" className="hover:text-primary transition-colors no-underline">
                   Privacy Policy
