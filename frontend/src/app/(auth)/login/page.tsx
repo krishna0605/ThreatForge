@@ -14,20 +14,19 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
-  const { login, isLoading, loginWithGoogle, verifyGoogleMFA } = useAuth();
+  const { login, isLoading, loginWithGoogle, verifyMFA } = useAuth();
   const router = useRouter();  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mfaStep, setMfaStep] = useState(false);
   const [totpCode, setTotpCode] = useState('');
-  const [isGoogleMFA, setIsGoogleMFA] = useState(false);
+  const [mfaSource, setMfaSource] = useState<'email' | 'google' | null>(null);
 
   useEffect(() => {
     // Check for MFA param from Google redirect
     const mfaParam = new URLSearchParams(window.location.search).get('mfa');
     if (mfaParam === 'google') {
         setMfaStep(true);
-        setIsGoogleMFA(true);
-        // Maybe show a specific message?
+        setMfaSource('google');
         toast.info("Please verify your identity with 2FA to complete Google login.");
     }
   }, []);
@@ -43,8 +42,8 @@ export default function LoginPage() {
     const formEmail = (form.querySelector('#email') as HTMLInputElement)?.value || email;
     const formPassword = (form.querySelector('#password') as HTMLInputElement)?.value || password;
 
-    if (isGoogleMFA && mfaStep) {
-        // Google MFA Flow
+    if (mfaStep) {
+        // Unified MFA Flow — works for both email and Google
         const tempToken = sessionStorage.getItem('mfa_temp_token');
         if (!tempToken) {
             setError('Session expired. Please log in again.');
@@ -53,7 +52,7 @@ export default function LoginPage() {
             return;
         }
 
-        const result = await verifyGoogleMFA(tempToken, totpCode);
+        const result = await verifyMFA(tempToken, totpCode);
         if (result.success) {
             router.push('/dashboard');
         } else {
@@ -61,12 +60,13 @@ export default function LoginPage() {
         }
     } else {
         // Normal Login Flow — use DOM values
-        const result = await login(formEmail, formPassword, mfaStep ? totpCode : undefined);
+        const result = await login(formEmail, formPassword);
 
         if (result.success) {
             router.push('/dashboard');
         } else if (result.mfa_required) {
             setMfaStep(true);
+            setMfaSource('email');
             setTotpCode('');
         } else {
             setError(result.error || 'Login failed');
@@ -287,10 +287,22 @@ export default function LoginPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => { setMfaStep(false); setError(''); setTotpCode(''); }}
+                  onClick={() => {
+                    if (mfaSource === 'google') {
+                      // For Google MFA, restart login entirely
+                      sessionStorage.removeItem('mfa_temp_token');
+                      sessionStorage.removeItem('mfa_source');
+                      window.location.href = '/login';
+                    } else {
+                      setMfaStep(false);
+                      setMfaSource(null);
+                      setError('');
+                      setTotpCode('');
+                    }
+                  }}
                   className="w-full text-center font-mono text-xs text-text-muted dark:text-gray-500 hover:text-primary transition-colors"
                 >
-                  ← Back to login
+                  ← {mfaSource === 'google' ? 'Cancel and restart' : 'Back to login'}
                 </button>
               </motion.div>
             )}

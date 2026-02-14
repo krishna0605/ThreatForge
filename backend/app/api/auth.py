@@ -8,6 +8,7 @@ from werkzeug.security import generate_password_hash
 import pyotp
 import uuid
 import logging
+from datetime import timedelta
 
 from . import api_bp
 from ..extensions import limiter
@@ -159,54 +160,17 @@ def login():
     if not user:
          return error_response('User profile not found', 404)
 
-    # Check MFA
+    # Check MFA — if enabled, issue a short-lived temp token instead of full tokens.
+    # The frontend will then call /auth/mfa/verify-login with the TOTP code.
     if user.mfa_enabled:
-        totp_code = data.totp_code
-        if not totp_code:
-            return success_response({
-                'mfa_required': True,
-            }, message='MFA verification required')
-
-        try:
-            # If mfa_secret is missing or can't be decrypted, auto-reset MFA
-            # This handles key rotation or corrupted secrets gracefully
-            user_id_str = str(user.id)
-            if not user.mfa_secret:
-                logger.warning(f"MFA enabled but no secret stored for user {user_id_str}. Auto-resetting MFA.")
-                supabase.table('profiles').update({
-                    'mfa_enabled': False
-                }).eq('id', user_id_str).execute()
-                # Fall through to generate tokens — user can re-enroll later
-            else:
-                secret = decrypt_data(user.mfa_secret)
-                if not secret:
-                    # Decryption failed — ENCRYPTION_KEY changed or data corrupted
-                    logger.error(f"Failed to decrypt MFA secret for user {user_id_str}. Auto-resetting MFA.")
-                    supabase.table('profiles').update({
-                        'mfa_enabled': False
-                    }).eq('id', user_id_str).execute()
-                    # Fall through to generate tokens — user can re-enroll later
-                else:
-                    totp = pyotp.TOTP(secret)
-                    if not totp.verify(totp_code):
-                        # Check recovery codes if TOTP fails
-                        valid_recovery = False
-                        if user.recovery_codes and len(totp_code) > 6:
-                            updated_codes = []
-                            for enc_code in user.recovery_codes:
-                                dec_code = decrypt_data(enc_code)
-                                if dec_code == totp_code:
-                                    valid_recovery = True
-                                else:
-                                    updated_codes.append(enc_code)
-                            if valid_recovery:
-                                supabase.table('profiles').update({'recovery_codes': updated_codes}).eq('id', user_id_str).execute()
-
-                        if not valid_recovery:
-                            return error_response('Invalid TOTP or recovery code', 401)
-        except Exception as e:
-            logger.error(f"MFA verification error for user {user.id}: {e}")
-            return error_response('Authentication error during MFA verification', 500)
+        temp_token = create_access_token(
+            identity=f"mfa_pending:{user.id}",
+            expires_delta=timedelta(minutes=5)
+        )
+        return success_response({
+            'mfa_required': True,
+            'temp_token': temp_token,
+        }, message='MFA verification required')
 
     # Generate tokens (Flask-JWT-Extended)
     access_token = create_access_token(identity=str(user.id))
@@ -455,7 +419,7 @@ def mfa_verify_login():
     try:
         supabase.table('activity_logs').insert({
             'user_id': str(user.id),
-            'action': 'login_google_mfa',
+            'action': 'login_mfa',
             'ip_address': request.remote_addr
         }).execute()
     except Exception:
@@ -525,7 +489,7 @@ def google_auth():
             # For simplicity, we can use a short-lived access token with a special identity or claim
             # But standard flask-jwt-extended claims is better.
             # Let's use a convention: identity="mfa_pending:<user_id>"
-            temp_token = create_access_token(identity=f"mfa_pending:{user.id}", expires_delta=False) # Default 15 mins is fine
+            temp_token = create_access_token(identity=f"mfa_pending:{user.id}", expires_delta=timedelta(minutes=5))
             return success_response({
                 'mfa_required': True,
                 'temp_token': temp_token

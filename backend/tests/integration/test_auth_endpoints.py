@@ -145,3 +145,212 @@ class TestRefresh:
     def test_refresh_without_token(self, client):
         response = client.post('/api/auth/refresh')
         assert response.status_code == 401
+
+
+class TestLoginMFA:
+    """Tests for POST /api/auth/login with MFA enabled."""
+
+    @patch('app.api.auth.supabase')
+    def test_login_mfa_required_returns_temp_token(self, mock_sb, client):
+        """When user has MFA enabled, login should return mfa_required + temp_token."""
+        mock_auth = MagicMock()
+        mock_user = MagicMock(id=TEST_USER_ID, email=TEST_USER_EMAIL)
+        mock_auth.sign_in_with_password.return_value = MagicMock(user=mock_user)
+        mock_sb.auth = mock_auth
+        
+        mfa_user = TEST_USER.copy()
+        mfa_user['mfa_enabled'] = True
+        mfa_user['mfa_secret'] = 'encrypted_secret'
+        mock_sb.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value = \
+            MagicMock(data=[mfa_user])
+
+        response = client.post('/api/auth/login', json={
+            'email': TEST_USER_EMAIL,
+            'password': 'SecurePass123!',
+        })
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['status'] == 'success'
+        assert data['data']['mfa_required'] is True
+        assert 'temp_token' in data['data']
+        # Should NOT have full tokens
+        assert 'access_token' not in data['data']
+
+    @patch('app.api.auth.supabase')
+    def test_login_no_mfa_returns_tokens(self, mock_sb, client):
+        """When user has MFA disabled, login should return full tokens directly."""
+        mock_auth = MagicMock()
+        mock_user = MagicMock(id=TEST_USER_ID, email=TEST_USER_EMAIL)
+        mock_auth.sign_in_with_password.return_value = MagicMock(user=mock_user)
+        mock_sb.auth = mock_auth
+        
+        user_data = TEST_USER.copy()
+        user_data['mfa_enabled'] = False
+        mock_sb.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value = \
+            MagicMock(data=[user_data])
+        mock_sb.table.return_value.insert.return_value.execute.return_value = MagicMock()
+
+        response = client.post('/api/auth/login', json={
+            'email': TEST_USER_EMAIL,
+            'password': 'SecurePass123!',
+        })
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['status'] == 'success'
+        assert 'access_token' in data['data']
+        assert 'user' in data['data']
+        assert 'mfa_required' not in data['data']
+
+
+class TestMFAVerifyLogin:
+    """Tests for POST /api/auth/mfa/verify-login."""
+
+    @patch('app.api.auth.decrypt_data')
+    @patch('app.api.auth.supabase')
+    def test_verify_login_valid_totp(self, mock_sb, mock_decrypt, client, app):
+        """Valid TOTP code should issue full tokens."""
+        import pyotp
+        secret = pyotp.random_base32()
+        totp = pyotp.TOTP(secret)
+        valid_code = totp.now()
+
+        mock_decrypt.return_value = secret
+        
+        mfa_user = TEST_USER.copy()
+        mfa_user['mfa_enabled'] = True
+        mfa_user['mfa_secret'] = 'encrypted_secret'
+        mock_sb.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value = \
+            MagicMock(data=[mfa_user])
+        mock_sb.table.return_value.insert.return_value.execute.return_value = MagicMock()
+
+        # Create a mfa_pending temp token
+        from flask_jwt_extended import create_access_token
+        with app.app_context():
+            temp_token = create_access_token(identity=f"mfa_pending:{TEST_USER_ID}")
+
+        response = client.post('/api/auth/mfa/verify-login',
+            headers={'Authorization': f'Bearer {temp_token}'},
+            json={'totp_code': valid_code}
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['status'] == 'success'
+        assert 'access_token' in data['data']
+        assert 'user' in data['data']
+
+    @patch('app.api.auth.decrypt_data')
+    @patch('app.api.auth.supabase')
+    def test_verify_login_invalid_totp(self, mock_sb, mock_decrypt, client, app):
+        """Invalid TOTP code should return 401."""
+        import pyotp
+        secret = pyotp.random_base32()
+        mock_decrypt.return_value = secret
+        
+        mfa_user = TEST_USER.copy()
+        mfa_user['mfa_enabled'] = True
+        mfa_user['mfa_secret'] = 'encrypted_secret'
+        mfa_user['recovery_codes'] = None
+        mock_sb.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value = \
+            MagicMock(data=[mfa_user])
+
+        from flask_jwt_extended import create_access_token
+        with app.app_context():
+            temp_token = create_access_token(identity=f"mfa_pending:{TEST_USER_ID}")
+
+        response = client.post('/api/auth/mfa/verify-login',
+            headers={'Authorization': f'Bearer {temp_token}'},
+            json={'totp_code': '000000'}
+        )
+        assert response.status_code == 401
+
+    def test_verify_login_rejects_regular_token(self, client, auth_headers):
+        """Regular (non mfa_pending) token should be rejected with 403."""
+        response = client.post('/api/auth/mfa/verify-login',
+            headers=auth_headers,
+            json={'totp_code': '123456'}
+        )
+        assert response.status_code == 403
+        data = response.get_json()
+        assert data['status'] == 'error'
+
+
+class TestGoogleAuthMFA:
+    """Tests for POST /api/auth/google with MFA cross-check."""
+
+    @patch('app.api.auth.supabase')
+    def test_google_auth_mfa_required(self, mock_sb, client):
+        """Google login with MFA-enabled profile should return mfa_required + temp_token."""
+        mock_auth = MagicMock()
+        mock_auth_user = MagicMock()
+        mock_auth_user.id = TEST_USER_ID
+        mock_auth_user.email = TEST_USER_EMAIL
+        mock_auth_user.user_metadata = {'full_name': 'Test User'}
+        mock_auth.get_user.return_value = MagicMock(user=mock_auth_user)
+        mock_sb.auth = mock_auth
+
+        mfa_user = TEST_USER.copy()
+        mfa_user['mfa_enabled'] = True
+        mfa_user['mfa_secret'] = 'encrypted_secret'
+        mock_sb.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value = \
+            MagicMock(data=[mfa_user])
+
+        response = client.post('/api/auth/google', json={
+            'access_token': 'valid-supabase-token-12345',
+        })
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['status'] == 'success'
+        assert data['data']['mfa_required'] is True
+        assert 'temp_token' in data['data']
+
+    @patch('app.api.auth.supabase')
+    def test_google_auth_no_mfa(self, mock_sb, client):
+        """Google login without MFA should return full tokens."""
+        mock_auth = MagicMock()
+        mock_auth_user = MagicMock()
+        mock_auth_user.id = TEST_USER_ID
+        mock_auth_user.email = TEST_USER_EMAIL
+        mock_auth_user.user_metadata = {'full_name': 'Test User'}
+        mock_auth.get_user.return_value = MagicMock(user=mock_auth_user)
+        mock_sb.auth = mock_auth
+
+        user_data = TEST_USER.copy()
+        user_data['mfa_enabled'] = False
+        mock_sb.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value = \
+            MagicMock(data=[user_data])
+        mock_sb.table.return_value.insert.return_value.execute.return_value = MagicMock()
+
+        response = client.post('/api/auth/google', json={
+            'access_token': 'valid-supabase-token-12345',
+        })
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['status'] == 'success'
+        assert 'access_token' in data['data']
+        assert 'user' in data['data']
+
+    @patch('app.api.auth.supabase')
+    def test_google_auth_new_user_no_mfa(self, mock_sb, client):
+        """First-time Google login creates profile with MFA disabled."""
+        mock_auth = MagicMock()
+        mock_auth_user = MagicMock()
+        mock_auth_user.id = TEST_USER_ID
+        mock_auth_user.email = TEST_USER_EMAIL
+        mock_auth_user.user_metadata = {'full_name': 'New Google User', 'avatar_url': 'https://example.com/photo.jpg'}
+        mock_auth.get_user.return_value = MagicMock(user=mock_auth_user)
+        mock_sb.auth = mock_auth
+
+        # First call: profile not found (empty data)
+        # Second call (after insert): profile found
+        mock_sb.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value = \
+            MagicMock(data=[])
+        mock_sb.table.return_value.insert.return_value.execute.return_value = MagicMock()
+
+        response = client.post('/api/auth/google', json={
+            'access_token': 'valid-supabase-token-12345',
+        })
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['status'] == 'success'
+        assert 'access_token' in data['data']
+

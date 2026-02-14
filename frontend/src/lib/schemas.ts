@@ -22,6 +22,7 @@ export type AuthResponse = z.infer<typeof AuthResponseSchema>;
 
 export const MFARequiredSchema = z.object({
   mfa_required: z.literal(true),
+  temp_token: z.string().optional(),
 });
 
 export const GenericSuccessSchema = z.object({

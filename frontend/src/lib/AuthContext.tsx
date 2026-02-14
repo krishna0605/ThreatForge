@@ -12,10 +12,10 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string, totp_code?: string) => Promise<{ success: boolean; error?: string; mfa_required?: boolean }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; mfa_required?: boolean }>;
   signup: (email: string, password: string, displayName: string) => Promise<{ success: boolean; error?: string }>;
   loginWithGoogle: () => Promise<void>;
-  verifyGoogleMFA: (tempToken: string, code: string) => Promise<{ success: boolean; error?: string }>;
+  verifyMFA: (tempToken: string, code: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   refreshUser: () => void;
 }
@@ -68,6 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 // Check if MFA is required
                 if (json.data.mfa_required && json.data.temp_token) {
                     sessionStorage.setItem('mfa_temp_token', json.data.temp_token);
+                    sessionStorage.setItem('mfa_source', 'google');
                     // Redirect to login page with MFA param, the Login Page will check session storage
                     window.location.href = '/login?mfa=google';
                     return;
@@ -100,14 +101,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // ... (loginWithGoogle - unchanged) ...
 
-  const verifyGoogleMFA = useCallback(async (tempToken: string, code: string) => {
+  const verifyMFA = useCallback(async (tempToken: string, code: string) => {
       try {
-          // We need to send the temp token as Authorization header using a custom request or modifying apiPost?
-          // Actually apiPost uses 'access_token' from localStorage.
-          // We can temporarily set the token to be the tempToken, or just pass headers explicitly.
-          // Let's use fetch directly or modify api.ts. simpler: modify apiPost or use raw fetch here.
-          // Using raw fetch for this specific edge case to avoid complex api.ts changes.
-          
           const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://threatforge-1.onrender.com';
           const url = `${API_BASE}/api/auth/mfa/verify-login`;
           
@@ -131,7 +126,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     localStorage.setItem('access_token', access_token);
                     localStorage.setItem('refresh_token', refresh_token);
                     localStorage.setItem('user', JSON.stringify(user));
-                    sessionStorage.removeItem('mfa_temp_token'); // Cleanup
+                    sessionStorage.removeItem('mfa_temp_token');
+                    sessionStorage.removeItem('mfa_source');
                     return { success: true };
                 }
           }
@@ -175,17 +171,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const login = useCallback(async (email: string, password: string, totp_code?: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     try {
-      const body: { email: string; password: string; totp_code?: string } = { email, password };
-      if (totp_code) body.totp_code = totp_code;
-      
-      const json = await apiPost('/auth/login', body);
+      const json = await apiPost('/auth/login', { email, password });
 
       if (json.status === 'success' && json.data) {
-        // Check for MFA requirement
+        // Check for MFA requirement (now returns temp_token)
         const mfaCheck = MFARequiredSchema.safeParse(json.data);
         if (mfaCheck.success && mfaCheck.data.mfa_required) {
+             // Store temp token for MFA verification step
+             if (mfaCheck.data.temp_token) {
+               sessionStorage.setItem('mfa_temp_token', mfaCheck.data.temp_token);
+               sessionStorage.setItem('mfa_source', 'email');
+             }
              return { success: false, mfa_required: true };
         }
 
@@ -257,7 +255,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider value={{
       user, token, isLoading,
       isAuthenticated: !!user && !!token,
-      login, signup, logout, refreshUser, loginWithGoogle, verifyGoogleMFA
+      login, signup, logout, refreshUser, loginWithGoogle, verifyMFA
     }}>
       {children}
 
