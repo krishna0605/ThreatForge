@@ -13,6 +13,12 @@ import { Security } from "./_components/Security";
 import { Engine } from "./_components/Engine";
 import { FrontendConsole } from "./_components/FrontendConsole";
 import { DeepDive } from "./_components/DeepDive";
+import { Resilience } from "./_components/Resilience";
+import { QualityAssurance } from "./_components/QualityAssurance";
+import { ConfigManagement } from "./_components/ConfigManagement";
+import { Performance } from "./_components/Performance";
+import { CodeQuality } from "./_components/CodeQuality";
+import { Appendices } from "./_components/Appendices";
 
 export default function DocumentationPage() {
   const heroRef = useRef<HTMLDivElement>(null);
@@ -81,6 +87,12 @@ export default function DocumentationPage() {
                <Engine />
                <FrontendConsole />
                <DeepDive />
+               <Resilience />
+               <QualityAssurance />
+               <ConfigManagement />
+               <Performance />
+               <CodeQuality />
+               <Appendices />
             </div>
           </div>
         </main>
