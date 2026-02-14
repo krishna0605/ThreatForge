@@ -1,7 +1,7 @@
 
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
+
 import { SimpleSpanProcessor } from '@opentelemetry/sdk-trace-node';
 
 const sdk = new NodeSDK({

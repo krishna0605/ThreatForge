@@ -1,30 +1,44 @@
 import React, { forwardRef } from 'react';
 
-const createMotionComponent = (Tag: string) => {
-  // eslint-disable-next-line react/display-name
-  return forwardRef(({ children, className, id, onClick, style, whileInView, viewport, initial, animate, exit, transition, whileHover, whileTap, ...props }: any, ref: any) => {
-    return (
-      <Tag ref={ref} className={className} id={id} onClick={onClick} style={style} {...props}>
-        {children}
-      </Tag>
-    );
+const createMockComponent = (tag: string) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const Component = forwardRef(({ children, ...props }: React.ComponentProps<any>, ref: React.Ref<any>) => {
+    // Filter out Framer Motion specific props to avoid React warnings
+    const { 
+      whileHover, whileTap, whileInView, initial, animate, exit, transition, variants, 
+      ...validProps 
+    } = props;
+    // Prevent unused variable warnings
+    void whileHover; void whileTap; void whileInView; void initial; void animate; void exit; void transition; void variants;
+    return React.createElement(tag, { ref, ...validProps }, children);
   });
+  Component.displayName = `Motion${tag.charAt(0).toUpperCase() + tag.slice(1)}`;
+  return Component;
 };
 
 export const motion = {
-  div: createMotionComponent('div'),
-  span: createMotionComponent('span'),
-  section: createMotionComponent('section'),
-  ul: createMotionComponent('ul'),
-  li: createMotionComponent('li'),
-  h1: createMotionComponent('h1'),
-  h2: createMotionComponent('h2'),
-  h3: createMotionComponent('h3'),
-  p: createMotionComponent('p'),
-  button: createMotionComponent('button'),
-  a: createMotionComponent('a'),
-  img: createMotionComponent('img'),
-  form: createMotionComponent('form'),
+  div: createMockComponent('div'),
+  section: createMockComponent('section'),
+  button: createMockComponent('button'),
+  span: createMockComponent('span'),
+  p: createMockComponent('p'),
+  a: createMockComponent('a'),
+  img: createMockComponent('img'),
+  form: createMockComponent('form'),
+  ul: createMockComponent('ul'),
+  li: createMockComponent('li'),
+  nav: createMockComponent('nav'),
+  h1: createMockComponent('h1'),
+  h2: createMockComponent('h2'),
+  h3: createMockComponent('h3'),
+  h4: createMockComponent('h4'),
+  table: createMockComponent('table'),
+  tr: createMockComponent('tr'),
+  td: createMockComponent('td'),
+  th: createMockComponent('th'),
+  tbody: createMockComponent('tbody'),
+  thead: createMockComponent('thead'),
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const AnimatePresence = ({ children }: any) => <>{children}</>;

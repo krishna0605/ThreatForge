@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -61,7 +60,8 @@ export default function RuleEditorPage() {
   useEffect(() => {
     if (!isNew) {
       apiGet(`/rules/${ruleId}`)
-        .then((data) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .then((data: any) => {
           const r = data.rule || data;
           setName(r.name);
           setContent(r.rule_content);
@@ -71,7 +71,10 @@ export default function RuleEditorPage() {
           setLastModified(r.updated_at || r.created_at || '');
           if (r.tags) setTags(r.tags);
         })
-        .catch((err) => setError(err.message))
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : 'Failed to load rule';
+          setError(msg);
+        })
         .finally(() => setLoading(false));
     }
   }, [ruleId, isNew]);
@@ -92,13 +95,17 @@ export default function RuleEditorPage() {
     try {
       const payload = { name, rule_content: content, category, severity };
       if (isNew) {
-        const result = await apiPost('/rules', payload);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const result = await apiPost('/rules', payload) as any;
         router.push(`/rules/${result.rule?.id || result.id}`);
       } else {
         await apiPut(`/rules/${ruleId}`, payload);
       }
       router.push('/rules');
-    } catch (err: any) { setError(err.message); }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Save failed';
+      setError(msg);
+    }
     finally { setSaving(false); }
   };
 
@@ -108,7 +115,8 @@ export default function RuleEditorPage() {
     setTestError('');
     setTestResults([]);
     try {
-      const result = await apiPost('/rules/validate', { rule_content: content });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await apiPost('/rules/validate', { rule_content: content }) as any;
       setTestValid(result.valid);
       if (!result.valid) {
         setTestError(result.errors?.join(', ') || 'Syntax error');
@@ -119,9 +127,10 @@ export default function RuleEditorPage() {
         { name: 'clean.exe', match: false },
         { name: 'doc.pdf', match: false },
       ]);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setTestValid(false);
-      setTestError(err.message);
+      const msg = err instanceof Error ? err.message : 'Validation failed';
+      setTestError(msg);
     }
     finally { setTesting(false); }
   };
@@ -131,7 +140,10 @@ export default function RuleEditorPage() {
     try {
       await apiDelete(`/rules/${ruleId}`);
       router.push('/rules');
-    } catch (err: any) { setError(err.message); }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Delete failed';
+      setError(msg);
+    }
   };
 
   const addTag = () => {
@@ -338,7 +350,7 @@ export default function RuleEditorPage() {
           {testValid === null && !testing ? (
             <div className="text-center py-8">
               <span className="material-symbols-outlined text-3xl text-gray-300 dark:text-gray-700 mb-2 inline-block">science</span>
-              <p className="font-mono text-xs text-text-muted dark:text-gray-500">Click "Test Rule" to validate syntax and run tests.</p>
+              <p className="font-mono text-xs text-text-muted dark:text-gray-500">Click &quot;Test Rule&quot; to validate syntax and run tests.</p>
             </div>
           ) : testing ? (
             <div className="flex items-center justify-center py-8">

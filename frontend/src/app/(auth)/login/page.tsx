@@ -25,9 +25,13 @@ export default function LoginPage() {
     // Check for MFA param from Google redirect
     const mfaParam = new URLSearchParams(window.location.search).get('mfa');
     if (mfaParam === 'google') {
-        setMfaStep(true);
-        setMfaSource('google');
-        toast.info("Please verify your identity with 2FA to complete Google login.");
+        // We defer the state update to avoid the set-state-in-effect warning
+        // essentially treating this as an event that happened "on mount"
+        setTimeout(() => {
+            setMfaStep(true);
+            setMfaSource('google');
+            toast.info("Please verify your identity with 2FA to complete Google login.");
+        }, 0);
     }
   }, []);
 

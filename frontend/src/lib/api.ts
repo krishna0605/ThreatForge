@@ -6,7 +6,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/proxy';
 let isRefreshing = false;
 let failedQueue: Array<{
   resolve: (value: unknown) => void;
-  reject: (reason?: any) => void;
+  reject: (reason?: unknown) => void;
 }> = [];
 
 // Helper to construct headers
@@ -73,7 +73,7 @@ async function request(path: string, options: RequestInit = {}) {
     body: options.body ? '(present)' : '(empty)' 
   });
 
-  let res = await fetch(url, options);
+  const res = await fetch(url, options);
 
   // Intercept 401
   if (res.status === 401) {
@@ -142,25 +142,25 @@ async function request(path: string, options: RequestInit = {}) {
   return handleResponse(res);
 }
 
-export async function apiGet<T = any>(path: string): Promise<T> {
+export async function apiGet<T = unknown>(path: string): Promise<T> {
   return request(path, { method: 'GET' });
 }
 
-export async function apiPost<T = any>(path: string, body?: unknown): Promise<T> {
+export async function apiPost<T = unknown>(path: string, body?: unknown): Promise<T> {
   return request(path, { 
     method: 'POST', 
     body: JSON.stringify(body) 
   });
 }
 
-export async function apiPut<T = any>(path: string, body: unknown): Promise<T> {
+export async function apiPut<T = unknown>(path: string, body: unknown): Promise<T> {
   return request(path, { 
     method: 'PUT', 
     body: JSON.stringify(body) 
   });
 }
 
-export async function apiDelete<T = any>(path: string): Promise<T> {
+export async function apiDelete<T = unknown>(path: string): Promise<T> {
   return request(path, { method: 'DELETE' });
 }
 
@@ -238,7 +238,7 @@ export async function getSecurityPreferences() {
   return apiGet('/security/preferences');
 }
 
-export async function updateSecurityPreferences(prefs: Record<string, any>) {
+export async function updateSecurityPreferences(prefs: Record<string, unknown>) {
   return apiPut('/security/preferences', prefs);
 }
 
@@ -263,7 +263,7 @@ export async function getNotificationPrefs() {
   return apiGet('/notifications/preferences');
 }
 
-export async function updateNotificationPrefs(prefs: Record<string, any>) {
+export async function updateNotificationPrefs(prefs: Record<string, unknown>) {
   return apiPut('/notifications/preferences', prefs);
 }
 

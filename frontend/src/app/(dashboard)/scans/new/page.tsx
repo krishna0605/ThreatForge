@@ -85,8 +85,9 @@ export default function NewScanPage() {
         await apiUpload('/scans', formData);
       }
       router.push('/scans');
-    } catch (err: any) {
-      setError(err.message || 'Scan failed');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Scan failed';
+      setError(msg);
     } finally {
       setIsScanning(false);
     }
@@ -352,7 +353,7 @@ export default function NewScanPage() {
       {/* Footer */}
       <div className="text-center pt-4 pb-2">
         <p className="text-[10px] font-mono text-gray-400 dark:text-gray-600 tracking-wider">
-          // SECURE_CONNECTION_ESTABLISHED | ENCRYPTION: AES-256
+          {`// SECURE_CONNECTION_ESTABLISHED | ENCRYPTION: AES-256`}
         </p>
       </div>
     </div>

@@ -70,7 +70,7 @@ export default function Testimonial() {
           transition={{ delay: 0.7, duration: 0.5 }}
           className="text-xs text-text-muted dark:text-gray-500 font-mono uppercase tracking-[0.15em]"
         >
-          <span className="text-primary font-bold mr-1">//</span>
+          <span className="text-primary font-bold mr-1">{'//'}</span>
           Trusted by security researchers worldwide
         </motion.p>
       </div>

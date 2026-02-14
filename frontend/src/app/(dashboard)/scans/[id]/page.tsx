@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { apiGet, apiPost } from '@/lib/api';
@@ -11,15 +11,52 @@ import { generatePdfReport } from '@/lib/generatePdfReport';
 interface Finding {
   id: string; finding_type: string; severity: string; title: string;
   description: string; confidence: number; remediation: string;
-  details?: Record<string, any>;
-  rule_matches?: { rule_name: string; matched_strings: any[] }[];
+  details?: {
+    strings?: {
+      total_strings?: number;
+      suspicious_strings?: string[];
+      urls?: string[];
+      ips?: string[];
+      emails?: string[];
+      registry_keys?: string[];
+    };
+    suspicious_apis?: string[];
+    pe_info?: {
+      sections?: { name: string; entropy: number; size: number }[];
+    };
+    stego_analysis?: {
+      confidence?: number;
+      method?: string;
+      indicators?: string[];
+    };
+    suspicious_dns?: string[];
+    iocs_found?: string[];
+    [key: string]: unknown;
+  };
+  rule_matches?: { rule_name: string; matched_strings: string[] }[];
+}
+
+interface ScanOptions {
+  enable_ml?: boolean;
+  enable_yara?: boolean;
+  enable_entropy?: boolean;
+  enable_pe?: boolean;
+  enable_stego?: boolean;
+  enable_pcap?: boolean;
+  [key: string]: unknown;
+}
+
+interface PeSection {
+  name: string;
+  entropy: number;
+  size: number;
 }
 
 interface ScanDetail {
   id: string; status: string; scan_type: string; total_files: number;
   threats_found: number; duration_seconds: number;
   created_at: string; completed_at: string;
-  options?: Record<string, any>;
+  options?: ScanOptions;
   files: { filename: string; file_hash_sha256: string; mime_type: string; file_size: number; entropy: number }[];
   findings: Finding[];
 }
@@ -78,12 +115,13 @@ export default function ScanDetailPage() {
     if (!scan) return;
     setShareLoading(true);
     try {
-      const res = await apiPost(`/scans/${scanId}/share`);
+      const res = await apiPost(`/scans/${scanId}/share`) as { share_url: string };
       setShareUrl(res.share_url);
       setShareModal(true);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('Share failed:', e);
-      alert('Failed to create share link: ' + e.message);
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      alert('Failed to create share link: ' + msg);
     } finally {
       setShareLoading(false);
     }
@@ -95,12 +133,15 @@ export default function ScanDetailPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const fetchScan = () => {
+  const fetchScan = useCallback(() => {
     apiGet(`/scans/${scanId}`)
-      .then(setScan)
-      .catch((err) => setError(err.message))
+      .then((data) => setScan(data as ScanDetail))
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : 'Failed to load scan';
+        setError(msg);
+      })
       .finally(() => setLoading(false));
-  };
+  }, [scanId]);
 
   useEffect(() => {
     fetchScan();
@@ -117,10 +158,10 @@ export default function ScanDetailPage() {
       })
       .subscribe();
     return () => { supabase.removeChannel(subscription); };
-  }, [scanId]);
+  }, [scanId, fetchScan]);
 
   const file = scan?.files?.[0];
-  const opts = scan?.options || {};
+  const opts = useMemo(() => (scan?.options || {}) as ScanOptions, [scan?.options]);
 
   // Compute threat score (0-100) from findings
   const threatScore = useMemo(() => {
@@ -143,14 +184,20 @@ export default function ScanDetailPage() {
   const highSeverityFindings = scan?.findings.filter(f => f.severity === 'critical' || f.severity === 'high') || [];
 
   // Build dynamic tabs based on which options were enabled
+  // Fix: Ensure opts is typed correctly or casted if necessary, though ScanOptions interface should help.
+  // The dependency array [opts] is correct if opts is stable.
+  // However, opts comes from scan?.options which might be a new object every render if scan updates.
+  // Since we depend on specific properties, it's better to destructure or rely on primitive values if possible,
+  // but here we just ensure typing is correct.
   const TABS = useMemo(() => {
     const tabs = ['Overview'];
-    if (opts.enable_ml !== false) tabs.push('ML Results');
-    if (opts.enable_yara !== false) tabs.push('YARA Matches');
-    if (opts.enable_entropy !== false) tabs.push('Entropy');
-    if (opts.enable_pe !== false) tabs.push('PE Headers');
-    if (opts.enable_stego) tabs.push('Steganography');
-    if (opts.enable_pcap) tabs.push('Network');
+    // Default to true if undefined, checking explicitly for false
+    if (opts?.enable_ml !== false) tabs.push('ML Results');
+    if (opts?.enable_yara !== false) tabs.push('YARA Matches');
+    if (opts?.enable_entropy !== false) tabs.push('Entropy');
+    if (opts?.enable_pe !== false) tabs.push('PE Headers');
+    if (opts?.enable_stego) tabs.push('Steganography');
+    if (opts?.enable_pcap) tabs.push('Network');
     tabs.push('Strings');
     return tabs;
   }, [opts]);
@@ -350,9 +397,9 @@ export default function ScanDetailPage() {
                         {f.description}
                         {f.confidence != null && ` (${(f.confidence * 100).toFixed(1)}% confidence)`}
                       </p>
-                      {f.details?.reasons && (
+                      {(f.details?.reasons as string[] | undefined) && (
                         <div className="ml-4 mt-2 space-y-1">
-                          {(f.details.reasons as string[]).map((r, i) => (
+                          {(f.details?.reasons as string[] || []).map((r, i) => (
                             <p key={i} className="font-mono text-[10px] text-yellow-500">▸ {r}</p>
                           ))}
                         </div>
@@ -500,7 +547,7 @@ export default function ScanDetailPage() {
                         <div className="ml-4 mt-3">
                           <p className="font-mono text-[10px] text-text-muted dark:text-gray-500 mb-1">PE Sections:</p>
                           <div className="space-y-1">
-                            {(f.details.pe_info.sections as any[]).map((sec: any, i: number) => (
+                            {(f.details.pe_info.sections as PeSection[]).map((sec: PeSection, i: number) => (
                               <div key={i} className="flex items-center gap-3 font-mono text-[10px]">
                                 <span className="text-text-main dark:text-white w-16">{sec.name}</span>
                                 <span className="text-text-muted dark:text-gray-500">Entropy: {sec.entropy?.toFixed(2)}</span>
@@ -683,7 +730,7 @@ export default function ScanDetailPage() {
                       <div>
                         <h4 className="font-mono text-xs font-bold text-text-main dark:text-white mb-2 uppercase tracking-wider">URLs</h4>
                         <div className="space-y-1 max-h-40 overflow-y-auto">
-                          {strData.urls.map((url: string, i: number) => (
+                          {(strData.urls || []).map((url: string, i: number) => (
                             <p key={i} className="font-mono text-[10px] text-yellow-500 break-all">▸ {url}</p>
                           ))}
                         </div>
@@ -693,7 +740,7 @@ export default function ScanDetailPage() {
                       <div>
                         <h4 className="font-mono text-xs font-bold text-text-main dark:text-white mb-2 uppercase tracking-wider">IP Addresses</h4>
                         <div className="flex flex-wrap gap-1">
-                          {strData.ips.map((ip: string, i: number) => (
+                          {(strData.ips || []).map((ip: string, i: number) => (
                             <span key={i} className="px-2 py-0.5 text-[9px] font-mono bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">{ip}</span>
                           ))}
                         </div>
@@ -703,7 +750,7 @@ export default function ScanDetailPage() {
                       <div>
                         <h4 className="font-mono text-xs font-bold text-text-main dark:text-white mb-2 uppercase tracking-wider">Email Addresses</h4>
                         <div className="space-y-1">
-                          {strData.emails.map((email: string, i: number) => (
+                          {(strData.emails || []).map((email: string, i: number) => (
                             <p key={i} className="font-mono text-[10px] text-blue-400">▸ {email}</p>
                           ))}
                         </div>
@@ -713,7 +760,7 @@ export default function ScanDetailPage() {
                       <div>
                         <h4 className="font-mono text-xs font-bold text-text-main dark:text-white mb-2 uppercase tracking-wider">Registry Keys</h4>
                         <div className="space-y-1">
-                          {strData.registry_keys.map((key: string, i: number) => (
+                          {(strData.registry_keys || []).map((key: string, i: number) => (
                             <p key={i} className="font-mono text-[10px] text-red-400 break-all">▸ {key}</p>
                           ))}
                         </div>
@@ -723,7 +770,7 @@ export default function ScanDetailPage() {
                       <div>
                         <h4 className="font-mono text-xs font-bold text-text-main dark:text-white mb-2 uppercase tracking-wider">Suspicious Strings</h4>
                         <div className="space-y-1 max-h-60 overflow-y-auto bg-gray-50 dark:bg-gray-900/50 p-3 border border-gray-200 dark:border-gray-700">
-                          {strData.suspicious_strings.map((s: string, i: number) => (
+                          {(strData.suspicious_strings || []).map((s: string, i: number) => (
                             <p key={i} className="font-mono text-[10px] text-text-main dark:text-gray-300 break-all">{s}</p>
                           ))}
                         </div>

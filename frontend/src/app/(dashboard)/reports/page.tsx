@@ -1,14 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { apiGet, apiDelete } from '@/lib/api';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface Scan {
-  id: string; status: string; filename: string | null; threats_found: number;
-  duration_seconds: number | null; created_at: string; scan_type: string;
-  findings?: { severity: string; confidence: number }[];
+  id: string;
+  status: string;
+  filename: string | null;
+  threats_found: number;
+  duration_seconds: number | null;
+  created_at: string;
+  scan_type: string;
 }
 
 function getFileIcon(name: string) {
@@ -29,6 +33,11 @@ function getThreatLevel(threats: number): { label: string; color: string; barCol
   return { label: 'CLEAN', color: 'text-green-500', barColor: 'bg-green-500' };
 }
 
+interface ScanResponse {
+  scans: Scan[];
+  pagination: { pages: number; total: number };
+}
+
 export default function ReportsPage() {
   const [scans, setScans] = useState<Scan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,11 +54,11 @@ export default function ReportsPage() {
   // Stats
   const [stats, setStats] = useState({ total: 0, critical: 0, storage: '0 MB' });
 
-  const fetchScans = async () => {
+  const fetchScans = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page), per_page: String(perPage), order: 'desc' });
-      const data = await apiGet(`/scans?${params}`);
+      const data = await apiGet(`/scans?${params}`) as ScanResponse;
       setScans(data.scans || []);
       setTotalPages(data.pagination?.pages || 1);
       setTotalCount(data.pagination?.total || 0);
@@ -63,11 +72,13 @@ export default function ReportsPage() {
         critical: critCount,
         storage: `${(totalSize / (1024 * 1024 * 1024)).toFixed(1)} GB`,
       });
-    } catch (err: any) { setError(err.message); }
-    finally { setLoading(false); }
-  };
+    } catch (err: unknown) {
+      if (err instanceof Error) setError(err.message);
+      else setError('An unknown error occurred');
+    } finally { setLoading(false); }
+  }, [page, perPage]);
 
-  useEffect(() => { fetchScans(); }, [page]);
+  useEffect(() => { fetchScans(); }, [page, fetchScans]);
 
   const toggleSelect = (id: string) => {
     setSelected(prev => {
@@ -89,7 +100,10 @@ export default function ReportsPage() {
       for (const id of selected) { await apiDelete(`/scans/${id}`); }
       setSelected(new Set());
       fetchScans();
-    } catch (err: any) { setError(err.message); }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Delete failed';
+      setError(msg);
+    }
   };
 
   const startIdx = (page - 1) * perPage + 1;
@@ -129,6 +143,23 @@ export default function ReportsPage() {
           </Link>
         </motion.div>
       </div>
+      
+      {/* Error Message */}
+      {error && (
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }} 
+          animate={{ opacity: 1, y: 0 }} 
+          className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-400 font-mono text-sm flex items-center justify-between"
+        >
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined">error</span>
+            <span>{error}</span>
+          </div>
+          <button onClick={() => setError('')} className="hover:text-red-900 dark:hover:text-red-200">
+            <span className="material-symbols-outlined text-sm">close</span>
+          </button>
+        </motion.div>
+      )}
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

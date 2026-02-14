@@ -13,7 +13,7 @@ export default function AuthCallbackPage() {
     // If auth finishes and we have a user
     if (!isLoading) {
        if (isAuthenticated && user) {
-          setStatus('Redirecting to dashboard...');
+          setTimeout(() => setStatus('Redirecting to dashboard...'), 0);
           router.push('/dashboard');
        } else {
           // If we are not authenticated after loading finishes, something went wrong

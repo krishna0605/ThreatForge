@@ -23,14 +23,15 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const [searchOpen, setSearchOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const [bellOpen, setBellOpen] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<{ id: string; type: string; title: string; message: string; created_at: string; is_read: boolean; metadata?: { scan_id?: string } }[]>([]);
   const bellRef = useRef<HTMLDivElement>(null);
 
   // Fetch unread count + recent notifications
   useEffect(() => {
     const fetchUnread = async () => {
       try {
-        const data = await getUnreadCount();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const data = await getUnreadCount() as any;
         setUnread(data.count || 0);
       } catch { /* not logged in */ }
     };
@@ -42,7 +43,8 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   // Fetch notifications when bell opens
   useEffect(() => {
     if (bellOpen) {
-      getNotifications(1, 8).then(data => setNotifications(data.notifications || [])).catch(() => {});
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      getNotifications(1, 8).then((data: any) => setNotifications(data.notifications || [])).catch(() => {});
     }
   }, [bellOpen]);
 
@@ -67,8 +69,6 @@ export default function DashboardShell({ children }: { children: React.ReactNode
     logout();
     router.push('/login');
   };
-
-  const currentPage = navItems.find(i => pathname.startsWith(i.path))?.name || 'Dashboard';
 
   return (
     <div className="min-h-screen relative selection:bg-primary selection:text-white">
@@ -160,7 +160,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
                         <p className="font-mono text-[11px] text-gray-500">No notifications yet</p>
                       </div>
                     ) : (
-                      notifications.map((n: any) => (
+                      notifications.map((n) => (
                         <div key={n.id}
                           className={`px-4 py-3 border-b border-gray-100 dark:border-gray-800 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${!n.is_read ? 'bg-primary/5' : ''}`}
                           onClick={async () => {

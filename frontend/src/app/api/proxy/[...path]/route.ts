@@ -20,7 +20,7 @@ export async function GET(
 
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: 'Backend service unavailable' },
       { status: 503 }
@@ -49,7 +49,7 @@ export async function POST(
 
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: 'Backend service unavailable' },
       { status: 503 }
@@ -78,7 +78,7 @@ export async function PUT(
 
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: 'Backend service unavailable' },
       { status: 503 }
@@ -105,7 +105,7 @@ export async function DELETE(
 
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: 'Backend service unavailable' },
       { status: 503 }

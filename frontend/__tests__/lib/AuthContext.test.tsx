@@ -2,7 +2,7 @@
  * Unit Tests — AuthContext (src/lib/AuthContext.tsx)
  */
 import React from 'react';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 // Mock dependencies
@@ -23,8 +23,8 @@ jest.mock('@/lib/api', () => ({
 }));
 
 jest.mock('framer-motion', () => ({
-  motion: { div: ({ children, ...props }: any) => <div {...props}>{children}</div> },
-  AnimatePresence: ({ children }: any) => <>{children}</>,
+  motion: { div: ({ children, ...props }: { children: React.ReactNode; [key: string]: unknown }) => <div {...props}>{children}</div> },
+  AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 import { AuthProvider, useAuth } from '@/lib/AuthContext';

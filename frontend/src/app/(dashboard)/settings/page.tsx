@@ -10,7 +10,32 @@ import {
   getSecurityPreferences, updateSecurityPreferences,
   getIpWhitelist, addIpWhitelist, removeIpWhitelist,
   getNotificationPrefs, updateNotificationPrefs, sendTestNotification,
+
 } from '@/lib/api';
+
+interface IpEntry {
+  id: string;
+  cidr_range: string;
+  label?: string;
+  created_at?: string;
+}
+
+interface Session {
+  id: string;
+  ip_address: string;
+  browser?: string;
+  os?: string;
+  created_at: string;
+  is_current?: boolean;
+}
+
+interface NotificationPrefs {
+  email_threat_alerts: boolean;
+  email_scan_completions: boolean;
+  email_weekly_digest: boolean;
+  push_critical_alerts: boolean;
+  push_scan_updates: boolean;
+}
 
 /* ───── Tab Definitions ───── */
 const TABS = [
@@ -36,6 +61,26 @@ function Toggle({ checked, onChange, id }: { checked: boolean; onChange: (v: boo
 }
 
 /* ───── Main Page ───── */
+interface SecurityPreferences {
+  session_timeout_enabled: boolean;
+  ip_whitelist_enabled: boolean;
+  audit_logging_enabled: boolean;
+}
+
+interface IpListResponse {
+  entries: IpEntry[];
+}
+
+interface SessionListResponse {
+  sessions: Session[];
+}
+
+interface MfaEnrollResponse {
+  data?: { qr_uri: string; secret: string };
+  qr_uri?: string;
+  secret?: string;
+}
+
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('general');
   const { user } = useAuth();
@@ -242,8 +287,9 @@ function SecurityTab() {
       await changePassword(currentPw, newPw, confirmPw);
       setPwMsg({ type: 'ok', text: 'Password changed successfully' });
       setCurrentPw(''); setNewPw(''); setConfirmPw('');
-    } catch (e: any) {
-      setPwMsg({ type: 'err', text: e.message || 'Failed to change password' });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Failed to change password';
+      setPwMsg({ type: 'err', text: msg });
     } finally { setPwLoading(false); }
   };
 
@@ -258,13 +304,15 @@ function SecurityTab() {
   const handleEnrollMFA = async () => {
     setMfaStep('enrolling'); setMfaMsg(null);
     try {
-      const response = await enrollMFA();
+      const response = await enrollMFA() as MfaEnrollResponse;
       const mfaData = response.data || response;
+      if (!mfaData.qr_uri || !mfaData.secret) throw new Error('Invalid MFA data');
       setQrUri(mfaData.qr_uri);
       setMfaSecret(mfaData.secret);
       setMfaStep('qr');
-    } catch (e: any) {
-      setMfaMsg({ type: 'err', text: e.message }); setMfaStep('idle');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Enrollment failed';
+      setMfaMsg({ type: 'err', text: msg }); setMfaStep('idle');
     }
   };
 
@@ -278,7 +326,10 @@ function SecurityTab() {
       // Update stored user
       const stored = localStorage.getItem('user');
       if (stored) { const u = JSON.parse(stored); u.mfa_enabled = true; localStorage.setItem('user', JSON.stringify(u)); }
-    } catch (e: any) { setMfaMsg({ type: 'err', text: e.message }); }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Verification failed';
+      setMfaMsg({ type: 'err', text: msg });
+    }
   };
 
   const handleDisableMFA = async () => {
@@ -286,26 +337,27 @@ function SecurityTab() {
     if (mfaCode.length !== 6) return setMfaMsg({ type: 'err', text: 'Enter current 6-digit code to disable' });
     try {
       await disableMFA(mfaCode);
-      setMfaEnabled(false); setMfaStep('idle'); setMfaCode('');
-      setMfaMsg({ type: 'ok', text: '2FA disabled' });
-      const stored = localStorage.getItem('user');
-      if (stored) { const u = JSON.parse(stored); u.mfa_enabled = false; localStorage.setItem('user', JSON.stringify(u)); }
-    } catch (e: any) { setMfaMsg({ type: 'err', text: e.message }); }
+      window.location.reload();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Disable failed';
+      setMfaMsg({ type: 'err', text: msg }); // Use setMfaMsg as setError is not defined
+    }
   };
 
   // ── Security Preferences ──
   const [sessionTimeout, setSessionTimeout] = useState(true);
   const [ipWhitelistEnabled, setIpWhitelistEnabled] = useState(false);
   const [auditLog, setAuditLog] = useState(false);
-  const [prefsLoaded, setPrefsLoaded] = useState(false);
+
+
 
   useEffect(() => {
-    getSecurityPreferences().then(p => {
-      setSessionTimeout(p.session_timeout_enabled ?? true);
-      setIpWhitelistEnabled(p.ip_whitelist_enabled ?? false);
-      setAuditLog(p.audit_logging_enabled ?? false);
-      setPrefsLoaded(true);
-    }).catch(() => setPrefsLoaded(true));
+    getSecurityPreferences().then((p: unknown) => {
+      const prefs = p as SecurityPreferences;
+      setSessionTimeout(prefs.session_timeout_enabled ?? true);
+      setIpWhitelistEnabled(prefs.ip_whitelist_enabled ?? false);
+      setAuditLog(prefs.audit_logging_enabled ?? false);
+    }).catch(() => {});
   }, []);
 
   const handlePrefChange = async (key: string, value: boolean, setter: (v: boolean) => void) => {
@@ -314,14 +366,15 @@ function SecurityTab() {
   };
 
   // ── IP Whitelist ──
-  const [ipEntries, setIpEntries] = useState<any[]>([]);
+  // ── IP Whitelist ──
+  const [ipEntries, setIpEntries] = useState<IpEntry[]>([]);
   const [newCidr, setNewCidr] = useState('');
   const [newLabel, setNewLabel] = useState('');
   const [ipMsg, setIpMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   useEffect(() => {
     if (ipWhitelistEnabled) {
-      getIpWhitelist().then(d => setIpEntries(d.entries || [])).catch(() => {});
+      getIpWhitelist().then((d: unknown) => setIpEntries((d as IpListResponse).entries || [])).catch(() => {});
     }
   }, [ipWhitelistEnabled]);
 
@@ -329,10 +382,13 @@ function SecurityTab() {
     setIpMsg(null);
     if (!newCidr.trim()) return setIpMsg({ type: 'err', text: 'CIDR range required' });
     try {
-      const res = await addIpWhitelist(newCidr.trim(), newLabel.trim());
+      const res = await addIpWhitelist(newCidr.trim(), newLabel.trim()) as { entry: IpEntry };
       setIpEntries(prev => [res.entry, ...prev]);
       setNewCidr(''); setNewLabel('');
-    } catch (e: any) { setIpMsg({ type: 'err', text: e.message }); }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Failed to add IP';
+      setIpMsg({ type: 'err', text: msg });
+    }
   };
 
   const handleRemoveIp = async (id: string) => {
@@ -343,11 +399,12 @@ function SecurityTab() {
   };
 
   // ── Active Sessions ──
-  const [sessions, setSessions] = useState<any[]>([]);
+  // ── Active Sessions ──
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(true);
 
   useEffect(() => {
-    getSecuritySessions().then(d => { setSessions(d.sessions || []); setSessionsLoading(false); }).catch(() => setSessionsLoading(false));
+    getSecuritySessions().then((d: unknown) => { setSessions((d as SessionListResponse).sessions || []); setSessionsLoading(false); }).catch(() => setSessionsLoading(false));
   }, []);
 
   const handleRevoke = async (id: string) => {
@@ -617,8 +674,8 @@ function NotificationsTab() {
   // Load preferences on mount
   useEffect(() => {
     getNotificationPrefs()
-      .then((data: any) => {
-        setPrefs(p => ({ ...p, ...data }));
+      .then((data: unknown) => {
+        setPrefs(p => ({ ...p, ...(data as Partial<NotificationPrefs>) }));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -640,10 +697,11 @@ function NotificationsTab() {
     setTestLoading(true);
     setTestStatus(null);
     try {
-      const res = await sendTestNotification('all');
+      await sendTestNotification('all');
       setTestStatus('Test notification sent! Check your email and browser.');
-    } catch (err: any) {
-      setTestStatus(`Error: ${err.message}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setTestStatus(`Error: ${msg}`);
     }
     setTestLoading(false);
     setTimeout(() => setTestStatus(null), 5000);
@@ -683,7 +741,7 @@ function NotificationsTab() {
                 <p className="font-mono text-sm font-bold text-text-main dark:text-white">{item.label}</p>
                 <p className="font-mono text-[11px] text-text-muted dark:text-gray-500">{item.desc}</p>
               </div>
-              <Toggle checked={(prefs as any)[item.key]} onChange={(v: boolean) => handleToggle(item.key, v)} id={item.id} />
+              <Toggle checked={prefs[item.key as keyof NotificationPrefs]} onChange={(v: boolean) => handleToggle(item.key, v)} id={item.id} />
             </div>
           ))}
         </div>
@@ -701,7 +759,7 @@ function NotificationsTab() {
                 <p className="font-mono text-sm font-bold text-text-main dark:text-white">{item.label}</p>
                 <p className="font-mono text-[11px] text-text-muted dark:text-gray-500">{item.desc}</p>
               </div>
-              <Toggle checked={(prefs as any)[item.key]} onChange={(v: boolean) => handleToggle(item.key, v)} id={item.id} />
+              <Toggle checked={prefs[item.key as keyof NotificationPrefs]} onChange={(v: boolean) => handleToggle(item.key, v)} id={item.id} />
             </div>
           ))}
         </div>

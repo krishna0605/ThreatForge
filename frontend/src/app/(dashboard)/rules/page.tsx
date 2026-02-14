@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { apiGet, apiPost, apiDelete } from '@/lib/api';
+import { apiGet, apiDelete } from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface YaraRule {
@@ -28,10 +28,14 @@ export default function RulesPage() {
 
   const fetchRules = async () => {
     try {
-      const data = await apiGet('/rules');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = await apiGet('/rules') as any;
       setRules(data.rules);
-    } catch (err: any) { setError(err.message); }
-    finally { setLoading(false); }
+      setRules(data.rules);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to load rules';
+      setError(msg);
+    } finally { setLoading(false); }
   };
 
   useEffect(() => { fetchRules(); }, []);
@@ -39,7 +43,10 @@ export default function RulesPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this rule?')) return;
     try { await apiDelete(`/rules/${id}`); fetchRules(); }
-    catch (err: any) { setError(err.message); }
+    catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete rule';
+      setError(msg);
+    }
   };
 
   return (

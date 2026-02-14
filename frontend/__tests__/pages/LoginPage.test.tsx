@@ -5,11 +5,13 @@ import userEvent from '@testing-library/user-event';
 
 // Mock mocks
 const mockLogin = jest.fn();
+const mockVerifyMFA = jest.fn();
 const mockPush = jest.fn();
 
 jest.mock('@/lib/AuthContext', () => ({
   useAuth: () => ({
     login: mockLogin,
+    verifyMFA: mockVerifyMFA,
     isLoading: false,
   }),
 }));
@@ -19,7 +21,11 @@ jest.mock('next/navigation', () => ({
   usePathname: () => '/login',
 }));
 
-jest.mock('@/components/ThemeToggle', () => () => <div data-testid="theme-toggle">ThemeToggle</div>);
+jest.mock('@/components/ThemeToggle', () => {
+  const MockThemeToggle = () => <div data-testid="theme-toggle">ThemeToggle</div>;
+  MockThemeToggle.displayName = 'MockThemeToggle';
+  return MockThemeToggle;
+});
 
 describe('LoginPage', () => {
   beforeEach(() => {
@@ -45,7 +51,7 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', { name: /Secure Login/i }));
 
     await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith('test@test.com', 'password', undefined);
+      expect(mockLogin).toHaveBeenCalledWith('test@test.com', 'password');
       expect(mockPush).toHaveBeenCalledWith('/dashboard');
     });
   });
@@ -68,8 +74,11 @@ describe('LoginPage', () => {
     const user = userEvent.setup();
     // First call returns mfa_required
     mockLogin.mockResolvedValueOnce({ success: false, mfa_required: true });
-    // Second call (with MFA) returns success
-    mockLogin.mockResolvedValueOnce({ success: true });
+    // Verify call returns success
+    mockVerifyMFA.mockResolvedValueOnce({ success: true });
+
+    // Simulate token setting that would happen in a real login
+    sessionStorage.setItem('mfa_temp_token', 'temp-token-123');
 
     render(<LoginPage />);
 
@@ -88,7 +97,8 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', { name: /Verify Code/i }));
 
     await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith('test@test.com', 'password', '123456');
+      expect(mockLogin).toHaveBeenCalledWith('test@test.com', 'password');
+      expect(mockVerifyMFA).toHaveBeenCalledWith('temp-token-123', '123456');
       expect(mockPush).toHaveBeenCalledWith('/dashboard');
     });
   });

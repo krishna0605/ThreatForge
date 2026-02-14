@@ -8,15 +8,42 @@ import { generatePdfReport } from '@/lib/generatePdfReport';
 interface Finding {
   id: string; finding_type: string; severity: string; title: string;
   description: string; confidence: number; remediation: string;
-  details?: Record<string, any>;
-  rule_matches?: { rule_name: string; matched_strings: any[] }[];
+  details?: {
+    strings?: {
+      total_strings?: number;
+      suspicious_strings?: string[];
+      urls?: string[];
+      ips?: string[];
+      emails?: string[];
+      registry_keys?: string[];
+    };
+    suspicious_apis?: string[];
+    pe_info?: {
+      sections?: { name: string; entropy: number; size: number }[];
+    };
+    stego_analysis?: {
+      confidence?: number;
+      method?: string;
+      indicators?: string[];
+    };
+    [key: string]: unknown;
+  };
+  rule_matches?: { rule_name: string; matched_strings: string[] }[];
 }
 
 interface ScanDetail {
   id: string; status: string; scan_type: string; total_files: number;
   threats_found: number; duration_seconds: number;
   created_at: string; completed_at: string; shared_at: string; expires_at: string;
-  options?: Record<string, any>;
+  options?: {
+    enable_ml?: boolean;
+    enable_yara?: boolean;
+    enable_entropy?: boolean;
+    enable_pe?: boolean;
+    enable_stego?: boolean;
+    enable_pcap?: boolean;
+    [key: string]: unknown;
+  };
   files: { filename: string; file_hash_sha256: string; mime_type: string; file_size: number; entropy: number }[];
   findings: Finding[];
 }
@@ -56,9 +83,12 @@ export default function SharedReportPage() {
         return res.json();
       })
       .then((data) => setScan(data))
-      .catch((e) => setError(e.message))
+      .catch((e: unknown) => {
+        const msg = e instanceof Error ? e.message : 'Failed to load report';
+        setError(msg);
+      })
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [token, sharedUrl]);
 
   const handleExportPdf = () => {
     if (!scan) return;
@@ -115,8 +145,10 @@ export default function SharedReportPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Top bar */}
+      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
       <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
       <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
       <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
       <div className="bg-[#1a1a2e] text-white">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -370,10 +402,10 @@ export default function SharedReportPage() {
                     </h3>
                     <div className="grid grid-cols-4 gap-3 mb-4">
                       {[
-                        { label: 'Total', value: strFinding.details.strings.total_strings || 0 },
-                        { label: 'Suspicious', value: (strFinding.details.strings.suspicious_strings || []).length },
-                        { label: 'URLs', value: (strFinding.details.strings.urls || []).length },
-                        { label: 'IPs', value: (strFinding.details.strings.ips || []).length },
+                        { label: 'Total', value: strFinding.details?.strings?.total_strings || 0 },
+                        { label: 'Suspicious', value: (strFinding.details?.strings?.suspicious_strings || []).length },
+                        { label: 'URLs', value: (strFinding.details?.strings?.urls || []).length },
+                        { label: 'IPs', value: (strFinding.details?.strings?.ips || []).length },
                       ].map((s, i) => (
                         <div key={i} className="text-center bg-gray-50 p-2">
                           <p className="text-[10px] text-gray-400 font-mono uppercase">{s.label}</p>
@@ -383,7 +415,7 @@ export default function SharedReportPage() {
                     </div>
                     {(strFinding.details.strings.suspicious_strings || []).length > 0 && (
                       <div className="max-h-40 overflow-y-auto border border-gray-100 p-3 bg-gray-50">
-                        {strFinding.details.strings.suspicious_strings.slice(0, 30).map((s: string, i: number) => (
+                        {(strFinding.details?.strings?.suspicious_strings || []).slice(0, 30).map((s: string, i: number) => (
                           <p key={i} className="text-[10px] font-mono text-gray-600 truncate">{s}</p>
                         ))}
                       </div>

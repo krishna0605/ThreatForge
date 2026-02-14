@@ -2,18 +2,24 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 // ── Types ──────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────
+
+interface DocWithAutoTable extends jsPDF {
+  lastAutoTable: { finalY: number };
+}
+
 interface Finding {
   id: string; finding_type: string; severity: string; title: string;
   description: string; confidence: number; remediation: string;
-  details?: Record<string, any>;
-  rule_matches?: { rule_name: string; matched_strings: any[] }[];
+  details?: Record<string, unknown>;
+  rule_matches?: { rule_name: string; matched_strings: string[] }[];
 }
 
 interface ScanDetail {
   id: string; status: string; scan_type: string; total_files: number;
   threats_found: number; duration_seconds: number;
   created_at: string; completed_at: string;
-  options?: Record<string, any>;
+  options?: Record<string, unknown>;
   files: { filename: string; file_hash_sha256: string; mime_type: string; file_size: number; entropy: number }[];
   findings: Finding[];
 }
@@ -55,7 +61,7 @@ function addWatermark(doc: jsPDF) {
   doc.setTextColor(220, 220, 220);
   doc.setFontSize(50);
   doc.setFont('helvetica', 'bold');
-  // @ts-ignore
+  // @ts-expect-error - jspdf types might be missing GState
   doc.setGState(new doc.GState({ opacity: 0.06 }));
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -115,7 +121,7 @@ function checkPageBreak(doc: jsPDF, y: number, needed: number): number {
 //  MAIN EXPORT FUNCTION
 // ══════════════════════════════════════════════════════
 export function generatePdfReport(scan: ScanDetail) {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' }) as DocWithAutoTable;
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const file = scan.files?.[0];
@@ -281,7 +287,7 @@ export function generatePdfReport(scan: ScanDetail) {
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: { 0: { cellWidth: 60 } },
   });
-  y = (doc as any).lastAutoTable.finalY + 10;
+  y = doc.lastAutoTable.finalY + 10;
 
   // Findings Summary table
   y = checkPageBreak(doc, y, 60);
@@ -302,7 +308,8 @@ export function generatePdfReport(scan: ScanDetail) {
     headStyles: { fillColor: COLORS.headerBg, textColor: COLORS.white, fontSize: 8, fontStyle: 'bold' },
     bodyStyles: { fontSize: 8, textColor: COLORS.textDark },
     alternateRowStyles: { fillColor: [248, 250, 252] },
-    didParseCell: (data: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    didParseCell: (data: { column: { index: number }, section: string, cell: { raw: unknown, styles: { textColor: any, fontStyle: string } } }) => {
       if (data.column.index === 2 && data.section === 'body') {
         const text = data.cell.raw as string;
         if (text.startsWith('[!]')) {
@@ -314,7 +321,7 @@ export function generatePdfReport(scan: ScanDetail) {
       }
     },
   });
-  y = (doc as any).lastAutoTable.finalY + 10;
+  y = doc.lastAutoTable.finalY + 10;
 
   // Remediation
   const highFindings = scan.findings.filter(f => f.severity === 'critical' || f.severity === 'high');
@@ -368,6 +375,7 @@ export function generatePdfReport(scan: ScanDetail) {
       bodyStyles: { fontSize: 8, textColor: COLORS.textDark },
       alternateRowStyles: { fillColor: [248, 250, 252] },
       columnStyles: { 0: { cellWidth: 35, fontStyle: 'bold' } },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       didParseCell: (data: any) => {
         if (data.column.index === 1 && data.row.index === 5 && data.section === 'body') {
           const text = data.cell.raw as string;
@@ -378,7 +386,7 @@ export function generatePdfReport(scan: ScanDetail) {
         }
       },
     });
-    y = (doc as any).lastAutoTable.finalY + 10;
+    y = doc.lastAutoTable.finalY + 10;
   }
 
   // Entropy findings
@@ -395,7 +403,8 @@ export function generatePdfReport(scan: ScanDetail) {
       bodyStyles: { fontSize: 7, textColor: COLORS.textDark },
       alternateRowStyles: { fillColor: [248, 250, 252] },
       columnStyles: { 0: { cellWidth: 20 }, 1: { cellWidth: 50 } },
-      didParseCell: (data: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    didParseCell: (data: { column: { index: number }, section: string, cell: { raw: unknown, styles: { textColor: any, fontStyle: string } } }) => {
         if (data.column.index === 0 && data.section === 'body') {
           const sev = (data.cell.raw as string).toLowerCase();
           data.cell.styles.textColor = severityColor(sev);
@@ -403,7 +412,7 @@ export function generatePdfReport(scan: ScanDetail) {
         }
       },
     });
-    y = (doc as any).lastAutoTable.finalY + 10;
+    y = doc.lastAutoTable.finalY + 10;
   }
 
   // PE Header findings
@@ -426,7 +435,8 @@ export function generatePdfReport(scan: ScanDetail) {
       bodyStyles: { fontSize: 7, textColor: COLORS.textDark },
       alternateRowStyles: { fillColor: [248, 250, 252] },
       columnStyles: { 0: { cellWidth: 20 }, 1: { cellWidth: 50 } },
-      didParseCell: (data: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    didParseCell: (data: { column: { index: number }, section: string, cell: { raw: unknown, styles: { textColor: any, fontStyle: string } } }) => {
         if (data.column.index === 0 && data.section === 'body') {
           const sev = (data.cell.raw as string).toLowerCase();
           data.cell.styles.textColor = severityColor(sev);
@@ -434,7 +444,7 @@ export function generatePdfReport(scan: ScanDetail) {
         }
       },
     });
-    y = (doc as any).lastAutoTable.finalY + 10;
+    y = doc.lastAutoTable.finalY + 10;
   }
 
   // ┌─────────────────────────────────────────────────
@@ -466,14 +476,15 @@ export function generatePdfReport(scan: ScanDetail) {
       bodyStyles: { fontSize: 7, textColor: COLORS.textDark },
       alternateRowStyles: { fillColor: [248, 250, 252] },
       columnStyles: { 0: { cellWidth: 20 }, 2: { cellWidth: 22 } },
-      didParseCell: (data: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    didParseCell: (data: { column: { index: number }, section: string, cell: { raw: unknown, styles: { textColor: any, fontStyle: string } } }) => {
         if (data.column.index === 0 && data.section === 'body') {
           data.cell.styles.textColor = severityColor((data.cell.raw as string).toLowerCase());
           data.cell.styles.fontStyle = 'bold';
         }
       },
     });
-    y = (doc as any).lastAutoTable.finalY + 10;
+    y = doc.lastAutoTable.finalY + 10;
   } else {
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
@@ -500,14 +511,15 @@ export function generatePdfReport(scan: ScanDetail) {
       bodyStyles: { fontSize: 7, textColor: COLORS.textDark },
       alternateRowStyles: { fillColor: [248, 250, 252] },
       columnStyles: { 0: { cellWidth: 20 } },
-      didParseCell: (data: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    didParseCell: (data: { column: { index: number }, section: string, cell: { raw: unknown, styles: { textColor: any, fontStyle: string } } }) => {
         if (data.column.index === 0 && data.section === 'body') {
           data.cell.styles.textColor = severityColor((data.cell.raw as string).toLowerCase());
           data.cell.styles.fontStyle = 'bold';
         }
       },
     });
-    y = (doc as any).lastAutoTable.finalY + 10;
+    y = doc.lastAutoTable.finalY + 10;
   } else {
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
@@ -535,7 +547,7 @@ export function generatePdfReport(scan: ScanDetail) {
       alternateRowStyles: { fillColor: [248, 250, 252] },
       columnStyles: { 0: { cellWidth: 20 } },
     });
-    y = (doc as any).lastAutoTable.finalY + 10;
+    y = doc.lastAutoTable.finalY + 10;
   } else {
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
@@ -568,7 +580,7 @@ export function generatePdfReport(scan: ScanDetail) {
       alternateRowStyles: { fillColor: [248, 250, 252] },
       columnStyles: { 0: { cellWidth: 20 } },
     });
-    y = (doc as any).lastAutoTable.finalY + 10;
+    y = doc.lastAutoTable.finalY + 10;
   } else {
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
@@ -585,7 +597,14 @@ export function generatePdfReport(scan: ScanDetail) {
     y = 25;
     y = sectionHeader(doc, y, 'String Analysis');
 
-    const strData = strFinding.details.strings;
+    const strData = strFinding.details.strings as {
+      total_strings?: number;
+      suspicious_strings?: string[];
+      urls?: string[];
+      ips?: string[];
+      emails?: string[];
+      registry_keys?: string[];
+    } || {};
 
     // Stats row
     const stats = [
@@ -605,7 +624,7 @@ export function generatePdfReport(scan: ScanDetail) {
       headStyles: { fillColor: COLORS.headerBg, textColor: COLORS.white, fontSize: 7, fontStyle: 'bold', halign: 'center' },
       bodyStyles: { fontSize: 9, textColor: COLORS.textDark, fontStyle: 'bold', halign: 'center' },
     });
-    y = (doc as any).lastAutoTable.finalY + 10;
+    y = doc.lastAutoTable.finalY + 10;
 
     // URLs
     if ((strData.urls || []).length > 0) {
@@ -619,13 +638,13 @@ export function generatePdfReport(scan: ScanDetail) {
         startY: y,
         margin: { left: 25, right: 25 },
         head: [['#', 'URL']],
-        body: strData.urls.slice(0, 30).map((u: string, i: number) => [String(i + 1), u]),
+        body: (strData.urls || []).slice(0, 30).map((u: string, i: number) => [String(i + 1), u]),
         theme: 'grid',
         headStyles: { fillColor: COLORS.headerBg, textColor: COLORS.white, fontSize: 7, fontStyle: 'bold' },
         bodyStyles: { fontSize: 6, textColor: COLORS.textDark },
         columnStyles: { 0: { cellWidth: 10, halign: 'center' } },
       });
-      y = (doc as any).lastAutoTable.finalY + 8;
+      y = doc.lastAutoTable.finalY + 8;
     }
 
     // IPs
@@ -640,13 +659,13 @@ export function generatePdfReport(scan: ScanDetail) {
         startY: y,
         margin: { left: 25, right: 25 },
         head: [['#', 'IP Address']],
-        body: strData.ips.slice(0, 30).map((ip: string, i: number) => [String(i + 1), ip]),
+        body: (strData.ips || []).slice(0, 30).map((ip: string, i: number) => [String(i + 1), ip]),
         theme: 'grid',
         headStyles: { fillColor: COLORS.headerBg, textColor: COLORS.white, fontSize: 7, fontStyle: 'bold' },
         bodyStyles: { fontSize: 7, textColor: COLORS.textDark },
         columnStyles: { 0: { cellWidth: 10, halign: 'center' } },
       });
-      y = (doc as any).lastAutoTable.finalY + 8;
+      y = doc.lastAutoTable.finalY + 8;
     }
 
     // Suspicious Strings (top 50)
@@ -661,7 +680,7 @@ export function generatePdfReport(scan: ScanDetail) {
         startY: y,
         margin: { left: 25, right: 25 },
         head: [['#', 'String']],
-        body: strData.suspicious_strings.slice(0, 50).map((s: string, i: number) => [String(i + 1), s.slice(0, 120)]),
+        body: (strData.suspicious_strings || []).slice(0, 50).map((s: string, i: number) => [String(i + 1), s.slice(0, 120)]),
         theme: 'grid',
         headStyles: { fillColor: COLORS.headerBg, textColor: COLORS.white, fontSize: 7, fontStyle: 'bold' },
         bodyStyles: { fontSize: 5.5, textColor: COLORS.textDark, font: 'courier' },

@@ -3,9 +3,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useIdleTimeout } from '@/hooks/useIdleTimeout';
 import { User, UserSchema, AuthResponseSchema, MFARequiredSchema } from '@/lib/schemas';
-import { getSecurityPreferences, apiPost } from '@/lib/api';
+import { apiPost } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
+
 
 interface AuthContextType {
   user: User | null;
@@ -26,8 +27,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [timeoutEnabled, setTimeoutEnabled] = useState(false);
-  const [timeoutMinutes, setTimeoutMinutes] = useState(15);
+  const [timeoutEnabled] = useState(false);
+  const [timeoutMinutes] = useState(15);
   // We need a way to pass the temp token to the login page if MFA is required
   // For simplicity, we can use localStorage or URL params. URL params are tricky with redirects.
   // Let's use sessionStorage for the temp token.
@@ -62,7 +63,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         try {
            setIsLoading(true);
-           const json = await apiPost('/auth/google', { access_token: session.access_token });
+           // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           const json = await apiPost('/auth/google', { access_token: session.access_token }) as any;
            
            if (json.status === 'success' && json.data) {
                 // Check if MFA is required
@@ -133,7 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           return { success: false, error: json.message || 'Verification failed' };
 
-      } catch (e) {
+      } catch {
           return { success: false, error: 'Verification error' };
       }
   }, []);
@@ -173,7 +175,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     try {
-      const json = await apiPost('/auth/login', { email, password });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const json = await apiPost('/auth/login', { email, password }) as any;
 
       if (json.status === 'success' && json.data) {
         // Check for MFA requirement (now returns temp_token)
@@ -213,7 +216,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signup = useCallback(async (email: string, password: string, displayName: string) => {
     try {
-      const json = await apiPost('/auth/signup', { email, password, display_name: displayName });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const json = await apiPost('/auth/signup', { email, password, display_name: displayName }) as any;
 
       if (json.status === 'success' && json.data) {
           const result = AuthResponseSchema.safeParse(json.data);

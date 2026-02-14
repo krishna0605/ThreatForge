@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { apiGet, apiDelete } from '@/lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -27,30 +27,33 @@ export default function ScansPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [error, setError] = useState('');
 
-  const fetchScans = async () => {
+  const fetchScans = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page), per_page: '10' });
       if (statusFilter) params.set('status', statusFilter);
-      const data = await apiGet(`/scans?${params}`);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = await apiGet(`/scans?${params}`) as any;
       setScans(data.scans);
       setTotalPages(data.pagination.pages);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to load scans';
+      setError(msg);
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, statusFilter]);
 
-  useEffect(() => { fetchScans(); }, [page, statusFilter]);
+  useEffect(() => { fetchScans(); }, [fetchScans]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this scan?')) return;
     try {
       await apiDelete(`/scans/${id}`);
       fetchScans();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Delete failed';
+      setError(msg);
     }
   };
 

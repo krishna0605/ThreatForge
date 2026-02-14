@@ -59,7 +59,7 @@ describe('apiPost', () => {
     await apiPost('/auth/login', { email: 'test@test.com', password: 'pass' });
 
     const [url, options] = mockFetch.mock.calls[0];
-    expect(url).toContain('/api/auth/login');
+    expect(url).toContain('/api/proxy/auth/login');
     expect(options.method).toBe('POST');
     expect(options.headers['Content-Type']).toBe('application/json');
     expect(JSON.parse(options.body)).toEqual({ email: 'test@test.com', password: 'pass' });

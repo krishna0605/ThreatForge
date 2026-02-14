@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import DashboardShell from '@/components/layout/DashboardShell';
 import userEvent from '@testing-library/user-event';
 
@@ -28,7 +28,11 @@ jest.mock('@/lib/api', () => ({
 }));
 
 // Mock child components
-jest.mock('@/components/ThemeToggle', () => () => <div data-testid="theme-toggle">ThemeToggle</div>);
+jest.mock('@/components/ThemeToggle', () => {
+  const MockThemeToggle = () => <div data-testid="theme-toggle">ThemeToggle</div>;
+  MockThemeToggle.displayName = 'MockThemeToggle';
+  return MockThemeToggle;
+});
 
 describe('DashboardShell', () => {
   beforeEach(() => {
@@ -79,7 +83,7 @@ describe('DashboardShell', () => {
   });
 
   it('displays user profile info in dropdown', async () => {
-    const user = userEvent.setup();
+
     render(
       <DashboardShell>
         <div>Content</div>

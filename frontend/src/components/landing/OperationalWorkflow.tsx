@@ -63,7 +63,7 @@ export default function OperationalWorkflow() {
         className="text-center mb-16"
       >
         <h2 className="font-display text-3xl md:text-4xl font-bold mb-4 text-text-main dark:text-white">
-          <span className="text-primary mr-2">///</span>Operational Workflow
+          <span className="text-primary mr-2">{'///'}</span>Operational Workflow
         </h2>
         <p className="font-mono text-text-muted dark:text-gray-400 text-sm uppercase tracking-widest">
           Automated Defense Sequence

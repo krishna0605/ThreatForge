@@ -24,6 +24,129 @@ import {
   ThreatOriginsWidget,
 } from '@/components/dashboard';
 
+interface HealthData {
+  network_integrity: { value: number; label: string; subtitle: string };
+  ai_confidence: { value: number; label: string; subtitle: string };
+  firewall_status: { value: number; label: string; subtitle: string };
+}
+
+interface ScanItem {
+  id: string;
+  filename?: string;
+  threats_found: number;
+  status: string;
+  created_at: string;
+  scan_type: string;
+  duration_seconds: number | null;
+}
+
+interface DashboardStats {
+  total_scans: number;
+  threats_found: number;
+  clean_files: number;
+  critical_alerts: number;
+  storage?: string;
+  network_integrity?: { value: number; label: string; subtitle: string };
+  ai_confidence?: { value: number; label: string; subtitle: string };
+  firewall_status?: { value: number; label: string; subtitle: string };
+  [key: string]: unknown;
+}
+
+interface ActivityResponse {
+  labels: string[];
+  data: number[];
+}
+
+interface DistributionResponse {
+  labels: string[];
+  data: number[];
+}
+
+interface SeverityResponse {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+    breakdown: any[];
+}
+interface ActionsResponse {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+    actions: any[];
+}
+interface MapResponse {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+    locations: any[];
+}
+interface OriginsResponse {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+    origins: any[];
+}
+
+interface ScanResponse {
+  scans: ScanItem[];
+}
+
+interface ActivityData {
+  labels: string[];
+  datasets: {
+    label: string;
+    data: number[];
+    borderColor: string;
+    backgroundColor: string;
+    tension: number;
+    fill: boolean;
+    pointBackgroundColor: string;
+    pointBorderColor: string;
+    pointRadius: number;
+    pointHoverRadius: number;
+  }[];
+}
+
+interface DistributionData {
+  labels: string[];
+  datasets: {
+    data: number[];
+    backgroundColor: string[];
+    borderColor: string;
+    borderWidth: number;
+  }[];
+}
+
+interface SeverityItem {
+  severity: string;
+  count: number;
+  level: string;
+  pct: number;
+}
+
+interface ActionItem {
+  id: string;
+  title: string;
+  type: string;
+  status: string;
+  created_at: string;
+  icon: string;
+  desc: string;
+}
+
+interface ThreatLocation {
+  lat: number;
+  lng: number;
+  country: string;
+  city: string;
+  ip: string;
+  type: string;
+  attacks: number;
+  risk: string;
+  color: string;
+}
+
+interface OriginItem {
+  country: string;
+  count: number;
+  risk_score: number;
+  flag: string;
+  attacks: number;
+  risk: string;
+}
+
 const ThreatDistributionWidget = dynamic(() => import('@/components/dashboard/ThreatDistributionWidget'), {
   ssr: false,
   loading: () => <div className="h-[220px] bg-gray-100 dark:bg-gray-800/50 rounded-sm animate-pulse" />
@@ -42,14 +165,14 @@ const ThreatMapWidget = dynamic(() => import('@/components/dashboard/ThreatMapWi
 export default function DashboardPage() {
   const { user } = useAuth();
   const [stats, setStats] = useState({ total_scans: 0, threats_found: 0, clean_files: 0, critical_alerts: 0 });
-  const [activityData, setActivityData] = useState<any>(null);
-  const [distributionData, setDistributionData] = useState<any>(null);
-  const [recentScans, setRecentScans] = useState<any[]>([]);
-  const [healthData, setHealthData] = useState<any>(null);
-  const [severityData, setSeverityData] = useState<any[]>([]);
-  const [securityActions, setSecurityActions] = useState<any[]>([]);
-  const [threatMapLocations, setThreatMapLocations] = useState<any[]>([]);
-  const [threatOrigins, setThreatOrigins] = useState<any[]>([]);
+  const [activityData, setActivityData] = useState<ActivityData | null>(null);
+  const [distributionData, setDistributionData] = useState<DistributionData | null>(null);
+  const [recentScans, setRecentScans] = useState<ScanItem[]>([]);
+  const [healthData, setHealthData] = useState<HealthData | null>(null);
+  const [severityData, setSeverityData] = useState<SeverityItem[]>([]);
+  const [securityActions, setSecurityActions] = useState<ActionItem[]>([]);
+  const [threatMapLocations, setThreatMapLocations] = useState<ThreatLocation[]>([]);
+  const [threatOrigins, setThreatOrigins] = useState<OriginItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -68,11 +191,21 @@ export default function DashboardPage() {
         ]);
 
         // Stats
-        if (statsRes.status === 'fulfilled') setStats(statsRes.value);
+        if (statsRes.status === 'fulfilled') {
+          setStats(statsRes.value as DashboardStats);
+        }
+
+        if (scansRes.status === 'fulfilled') {
+          const scansData = scansRes.value as ScanResponse;
+          setRecentScans((scansData.scans || []).map((s: ScanItem) => ({
+            ...s,
+            filename: s.filename || undefined
+          })));
+        }
 
         // Activity chart
         if (activityRes.status === 'fulfilled') {
-          const activityVal = activityRes.value;
+          const activityVal = activityRes.value as ActivityResponse;
           setActivityData({
             labels: activityVal.labels,
             datasets: [{
@@ -92,35 +225,36 @@ export default function DashboardPage() {
 
         // Distribution chart
         if (distRes.status === 'fulfilled') {
-          const distVal = distRes.value;
+          const distVal = distRes.value as DistributionResponse;
           setDistributionData({
             labels: distVal.labels,
             datasets: [{
               data: distVal.data,
               backgroundColor: ['#ef4444', '#f59e0b', '#22c55e', '#8b5cf6'],
-              borderColor: 'rgba(255,255,255,0)',
+              borderColor: '#ffffff',
               borderWidth: 2,
             }],
           });
         }
 
         // Recent scans
-        if (scansRes.status === 'fulfilled') setRecentScans(scansRes.value.scans || []);
+        // Duplicate scan processing block removed
 
         // Security health
-        if (healthRes.status === 'fulfilled') setHealthData(healthRes.value);
+        if (healthRes.status === 'fulfilled') setHealthData(healthRes.value as HealthData);
+        if (severityRes.status === 'fulfilled') setSeverityData((severityRes.value as SeverityResponse).breakdown || []);
+        if (actionsRes.status === 'fulfilled') setSecurityActions((actionsRes.value as ActionsResponse).actions || []);
 
-        // Severity breakdown
-        if (severityRes.status === 'fulfilled') setSeverityData(severityRes.value.breakdown || []);
-
-        // Security actions
-        if (actionsRes.status === 'fulfilled') setSecurityActions(actionsRes.value.actions || []);
-
-        // Threat map
-        if (mapRes.status === 'fulfilled') setThreatMapLocations(mapRes.value.locations || []);
+        if (mapRes.status === 'fulfilled') {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setThreatMapLocations(((mapRes.value as MapResponse).locations || []).map((l: any) => ({
+            ...l,
+            risk: String(l.risk)
+          })));
+        }
 
         // Threat origins
-        if (originsRes.status === 'fulfilled') setThreatOrigins(originsRes.value.origins || []);
+        if (originsRes.status === 'fulfilled') setThreatOrigins((originsRes.value as OriginsResponse).origins || []);
 
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
