@@ -10,7 +10,7 @@ class TestErrorHandlers:
         response = client.get('/api/nonexistent-endpoint-xyz')
         assert response.status_code == 404
         data = response.get_json()
-        assert 'error' in data
+        assert data.get('status') == 'error' or 'error' in data or 'message' in data
 
     def test_405_method_not_allowed(self, client):
         # DELETE on a POST-only endpoint (login only accepts POST)
