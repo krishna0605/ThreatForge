@@ -46,7 +46,7 @@ export default function Footer() {
               </h4>
               <ul className="space-y-3 font-mono text-sm text-text-muted dark:text-gray-400 list-none p-0 m-0">
                 <li>
-                  <Link href="#" className="hover:text-primary transition-colors no-underline">
+                  <Link href="/vision" className="hover:text-primary transition-colors no-underline">
                     Vision
                   </Link>
                 </li>

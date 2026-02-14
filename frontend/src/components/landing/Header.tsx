@@ -52,7 +52,7 @@ export default function Header() {
       <nav className="hidden md:flex items-center">
         <div className="flex items-center gap-2 px-3 py-2 rounded-full border border-gray-200 dark:border-gray-700/50 bg-white/50 dark:bg-white/[0.03] backdrop-blur-sm">
           {[
-            { label: "Vision", href: "#" },
+            { label: "Vision", href: "/vision" },
             { label: "About Us", href: "#" },
             { label: "Documentation", href: "#" },
           ].map((item) => (
