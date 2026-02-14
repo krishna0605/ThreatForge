@@ -32,37 +32,43 @@ export default function Header() {
       />
 
       {/* Logo */}
-      <Link href="/" className="flex items-center gap-3 group cursor-pointer no-underline">
-        <div className="relative">
+      <Link href="/" className="flex items-center gap-2.5 group cursor-pointer no-underline shrink-0">
+        <div className="relative flex items-center justify-center w-8 h-8">
           <motion.span
             whileHover={{ rotate: 360 }}
             transition={{ duration: 0.6, ease: "easeInOut" }}
-            className="material-icons text-primary text-3xl block leading-none"
+            className="material-icons text-primary text-[28px] leading-[1]"
           >
             security
           </motion.span>
           <div className="absolute inset-0 blur-md bg-primary/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         </div>
-        <h1 className="font-display text-xl md:text-2xl font-bold tracking-[0.15em] uppercase text-text-main dark:text-white leading-none mt-1">
+        <span className="font-display text-xl md:text-2xl font-bold tracking-[0.15em] uppercase text-text-main dark:text-white leading-[1]">
           THREAT<span className="text-primary">FORGE</span>
-        </h1>
+        </span>
       </Link>
 
       {/* Navigation */}
-      <nav className="hidden md:flex items-center gap-8 font-mono text-sm text-text-muted dark:text-gray-400">
-        <Link href="#" className="hover:text-primary transition-colors duration-300 no-underline tracking-wide">
-          Vision
-        </Link>
-        <Link href="#" className="hover:text-primary transition-colors duration-300 no-underline tracking-wide">
-          About Us
-        </Link>
-        <Link href="#" className="hover:text-primary transition-colors duration-300 no-underline tracking-wide">
-          Documentation
-        </Link>
+      <nav className="hidden md:flex items-center">
+        <div className="flex items-center gap-1 px-4 py-1.5 rounded-full border border-gray-200 dark:border-gray-700/50 bg-white/50 dark:bg-white/[0.03] backdrop-blur-sm">
+          {[
+            { label: "Vision", href: "#" },
+            { label: "About Us", href: "#" },
+            { label: "Documentation", href: "#" },
+          ].map((item, i) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              className="px-4 py-1.5 rounded-full text-xs font-mono font-medium tracking-wide text-text-muted dark:text-gray-400 hover:text-primary hover:bg-primary/5 dark:hover:bg-primary/10 transition-all duration-300 no-underline"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
       </nav>
 
       {/* Actions */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 shrink-0">
         <ThemeToggle />
         <Link
           href="/login"
