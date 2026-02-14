@@ -156,8 +156,8 @@ export default function DocumentationPage() {
       {/* Background */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute inset-0 bg-grid-pattern bg-grid-pattern-size opacity-40" />
-        <div className="absolute top-[-15%] left-[5%] w-[700px] h-[700px] bg-primary/[0.04] rounded-full blur-[160px]" />
-        <div className="absolute bottom-[-15%] right-[5%] w-[800px] h-[800px] bg-secondary/[0.03] rounded-full blur-[180px]" />
+        <div className="absolute top-[-20%] left-[0%] w-[900px] h-[900px] bg-primary/[0.02] rounded-full blur-[300px]" />
+        <div className="absolute bottom-[-20%] right-[0%] w-[1000px] h-[1000px] bg-secondary/[0.015] rounded-full blur-[350px]" />
       </div>
       <div className="fixed inset-0 crt-overlay z-50 opacity-15 pointer-events-none" />
 
