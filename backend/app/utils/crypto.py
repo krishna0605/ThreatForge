@@ -12,6 +12,7 @@ if not os.getenv('ENCRYPTION_KEY'):
         "Set ENCRYPTION_KEY in your environment variables."
     )
 
+
 def get_cipher_suite():
     key = os.getenv('ENCRYPTION_KEY')
     if not key:
@@ -19,16 +20,17 @@ def get_cipher_suite():
         # In production, this should raise an error to prevent insecure startup.
         # For dev, we might generate one or fail. Let's fail safe.
         raise ValueError("ENCRYPTION_KEY configuration is missing")
-    
+
     # Ensure key is bytes
     if isinstance(key, str):
         key = key.encode()
-    
+
     try:
         return Fernet(key)
     except Exception as e:
         logger.error(f"Invalid ENCRYPTION_KEY: {e}")
         raise
+
 
 def encrypt_data(data: str) -> str:
     """Encrypt a string and return the base64 encoded ciphertext."""
@@ -41,6 +43,7 @@ def encrypt_data(data: str) -> str:
     except Exception as e:
         logger.error(f"Encryption failed: {e}")
         raise
+
 
 def decrypt_data(token: str) -> str:
     """Decrypt a base64 encoded ciphertext."""

@@ -5,6 +5,7 @@ from datetime import datetime
 from pydantic import Field, field_validator
 from .base import SupabaseModel
 
+
 class ScanFileModel(SupabaseModel):
     id: Optional[UUID] = None
     scan_id: UUID
@@ -15,6 +16,7 @@ class ScanFileModel(SupabaseModel):
     entropy: Optional[float] = None
     storage_path: Optional[str] = None
     uploaded_at: Optional[datetime] = None
+
 
 class ScanModel(SupabaseModel):
     id: Optional[UUID] = None
@@ -27,7 +29,7 @@ class ScanModel(SupabaseModel):
     options: Dict[str, Any] = Field(default_factory=dict)
     created_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
-    
+
     # Relationships (optional, for response serialization)
     files: Optional[List[ScanFileModel]] = None
 

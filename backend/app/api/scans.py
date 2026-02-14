@@ -3,9 +3,9 @@ import os
 import uuid
 from datetime import datetime, timezone
 from flask import request, jsonify, current_app
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 from werkzeug.utils import secure_filename
-import json
+
 import logging
 
 from . import api_bp
@@ -13,11 +13,10 @@ from ..supabase_client import supabase
 from ..models.scan import ScanModel, ScanFileModel
 from ..models.finding import FindingModel, RuleMatchModel
 from ..services.scanner import ScanOrchestrator
-from ..utils.responses import success_response, error_response
+from ..utils.responses import success_response
 from ..utils.auth import get_current_user_id
 
 logger = logging.getLogger('threatforge.scans')
-
 
 ALLOWED_EXTENSIONS = {
     'exe', 'dll', 'bin', 'pdf', 'doc', 'docx', 'xls', 'xlsx',
@@ -26,8 +25,10 @@ ALLOWED_EXTENSIONS = {
     'pcap', 'pcapng', 'csv', 'json', 'xml', 'txt',
 }
 
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 @api_bp.route('/scans', methods=['POST'])
 @jwt_required()
@@ -96,7 +97,7 @@ def create_scan():
 
         # Run scan synchronously (for Phase 3)
         orchestrator = ScanOrchestrator()
-        
+
         # Get enabled YARA rules
         yara_rules = []
         if enable_yara:
@@ -109,13 +110,13 @@ def create_scan():
                 rules_query = supabase.table('yara_rules').select('name, rule_content, category')\
                     .eq('is_enabled', True)\
                     .or_(f"user_id.eq.{user_id},is_builtin.eq.true")
-                
+
                 # Filter by YARA ruleset category
                 if yara_ruleset and yara_ruleset != 'all':
                     rules_query = rules_query.eq('category', yara_ruleset)
-                
+
                 rules_res = rules_query.execute()
-                
+
                 if rules_res.data:
                     yara_rules = [{'name': r['name'], 'content': r['rule_content']} for r in rules_res.data]
             except Exception as e:
@@ -137,7 +138,7 @@ def create_scan():
         )
 
         # Update scan_file with metadata
-        # Partial update, no need for full model here usually, but we can stick to dict for updates 
+        # Partial update, no need for full model here usually, but we can stick to dict for updates
         # as Pydantic is best for full record creation or validation.
         supabase.table('scan_files').update({
             'file_hash_sha256': results['metadata'].get('sha256'),
@@ -152,7 +153,7 @@ def create_scan():
 
         for f_data in results.get('findings', []):
             finding_id = str(uuid.uuid4())
-            
+
             # Validate with Pydantic
             finding_model = FindingModel(
                 id=uuid.UUID(finding_id),
@@ -171,7 +172,7 @@ def create_scan():
 
             if f_data['severity'] in ('critical', 'high', 'medium'):
                 threats += 1
-            
+
             # Prepare rule matches
             if f_data['finding_type'] == 'yara' and 'match' in f_data.get('details', {}):
                 match_data = f_data['details']['match']
@@ -186,10 +187,10 @@ def create_scan():
         # Batch insert findings
         if findings_to_insert:
             supabase.table('findings').insert(findings_to_insert).execute()
-        
+
         # Batch insert rule matches
         if rule_matches_to_insert:
-             supabase.table('rule_matches').insert(rule_matches_to_insert).execute()
+            supabase.table('rule_matches').insert(rule_matches_to_insert).execute()
 
         # Update scan status
         supabase.table('scans').update({
@@ -256,9 +257,9 @@ def create_scan():
         logger.error("Scan failed: %s", e)
         # Update scan status to failed
         try:
-             supabase.table('scans').update({'status': 'failed'}).eq('id', scan_id).execute()
-        except:
-             pass
+            supabase.table('scans').update({'status': 'failed'}).eq('id', scan_id).execute()
+        except Exception:
+            pass
         # We return the scan_id so client can poll for status 'failed'
         return jsonify({'error': 'Scan failed internal error', 'scan_id': scan_id}), 500
 
@@ -273,7 +274,7 @@ def list_scans():
     per_page = request.args.get('per_page', 10, type=int)
     status_filter = request.args.get('status')
     order = request.args.get('order', 'desc')
-    
+
     per_page = min(per_page, 50)
     start = (page - 1) * per_page
     end = start + per_page - 1
@@ -287,10 +288,10 @@ def list_scans():
 
         # Sorting
         query = query.order('created_at', desc=(order == 'desc'))
-        
+
         # Pagination
         query = query.range(start, end)
-        
+
         result = query.execute()
         scans = result.data
         total_count = result.count if result.count is not None else len(scans)
@@ -301,7 +302,7 @@ def list_scans():
             filename = None
             if s.get('scan_files') and len(s['scan_files']) > 0:
                 filename = s['scan_files'][0]['filename']
-            
+
             scans_data.append({
                 'id': s['id'],
                 'status': s['status'],
@@ -335,7 +336,7 @@ def list_scans():
 def get_scan(scan_id):
     """Get full scan details with findings."""
     user_id = get_current_user_id()
-    
+
     # Fetch scan, files, findings, and matches in parallel or joined query
     # Supabase Join: scan -> scan_files, scan -> findings -> rule_matches
     # NOTE: Deep nesting in one query can be tricky. We'll do a few queries for simplicity and safety.
@@ -346,7 +347,7 @@ def get_scan(scan_id):
     except Exception:
         return jsonify({'error': 'Scan not found'}), 404
     if not scan_res.data:
-         return jsonify({'error': 'Scan not found'}), 404
+        return jsonify({'error': 'Scan not found'}), 404
     scan = scan_res.data
 
     try:
@@ -359,7 +360,7 @@ def get_scan(scan_id):
         findings_res = supabase.table('findings').select('*, rule_matches(rule_name, matched_strings)')\
             .eq('scan_id', scan_id).execute()
         findings_data = findings_res.data
-        
+
         # Format Response
         formatted_findings = []
         for f in findings_data:
@@ -401,14 +402,16 @@ def get_scan(scan_id):
 def delete_scan(scan_id):
     """Delete a scan and its files."""
     user_id = get_current_user_id()
-    
+
     # Verify ownership before delete (RLS handles this too, but good to check for file deletion)
     try:
-        scan_res = supabase.table('scans').select('id, user_id').eq('id', scan_id).eq('user_id', user_id).single().execute()
+        scan_res = supabase.table('scans').select(
+            'id, user_id'
+        ).eq('id', scan_id).eq('user_id', user_id).single().execute()
     except Exception:
         return jsonify({'error': 'Scan not found'}), 404
     if not scan_res.data:
-         return jsonify({'error': 'Scan not found'}), 404
+        return jsonify({'error': 'Scan not found'}), 404
 
     try:
         # Get file paths to delete from disk
@@ -435,7 +438,7 @@ def delete_scan(scan_id):
 def get_scan_report(scan_id):
     """Get formatted report data."""
     user_id = get_current_user_id()
-    
+
     try:
         # Re-use logic or query explicitly
         # 1. Get Scan
@@ -452,7 +455,7 @@ def get_scan_report(scan_id):
 
         findings_by_severity = {'critical': 0, 'high': 0, 'medium': 0, 'low': 0, 'info': 0}
         findings_list = []
-        
+
         for f in findings:
             sev = f.get('severity', 'info')
             findings_by_severity[sev] = findings_by_severity.get(sev, 0) + 1

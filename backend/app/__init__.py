@@ -1,11 +1,12 @@
 """Flask Application Factory"""
 import os
+
+
 from flask import Flask
 from flask_cors import CORS
 
-
 from .config import Config
-from .extensions import jwt, limiter, socketio, revoked_tokens
+from .extensions import jwt, limiter, socketio
 
 from opentelemetry import trace
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
@@ -14,11 +15,11 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from prometheus_flask_exporter import PrometheusMetrics
-import structlog
-import logging
+
 
 # Configure Structlog
 # Moved to logging_config.py
+
 
 def create_app(config_class=Config):
     """Create and configure the Flask application."""
@@ -28,7 +29,7 @@ def create_app(config_class=Config):
     # 0. Configure Logging (Must be first to capture startup logs)
     from .logging_config import setup_logging
     setup_logging(app)
-    
+
     # 1. Register Middleware (Early)
     from .middleware.correlation import register_correlation_middleware
     register_correlation_middleware(app)
@@ -53,7 +54,6 @@ def create_app(config_class=Config):
     metrics = PrometheusMetrics(app)
     metrics.info('app_info', 'Application info', version='1.0.0')
 
-
     # Initialize extensions
     jwt.init_app(app)
     limiter.init_app(app)
@@ -77,7 +77,7 @@ def create_app(config_class=Config):
     # Register blueprints
     from .api import api_bp
     app.register_blueprint(api_bp, url_prefix='/api')
-    
+
     from .api.shared import shared_bp
     app.register_blueprint(shared_bp, url_prefix='/api')
 

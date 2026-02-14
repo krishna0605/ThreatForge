@@ -1,6 +1,7 @@
 """YARA Rule Model (Supabase Migration)"""
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from typing import Optional
+
 
 @dataclass
 class YaraRule:

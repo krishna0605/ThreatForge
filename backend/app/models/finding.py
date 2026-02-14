@@ -5,12 +5,14 @@ from datetime import datetime
 from pydantic import Field, field_validator
 from .base import SupabaseModel
 
+
 class RuleMatchModel(SupabaseModel):
     id: Optional[UUID] = None
     finding_id: UUID
     rule_name: str
     rule_id: Optional[UUID] = None
     matched_strings: List[Any] = Field(default_factory=list)
+
 
 class FindingModel(SupabaseModel):
     id: Optional[UUID] = None
@@ -24,7 +26,7 @@ class FindingModel(SupabaseModel):
     details: Dict[str, Any] = Field(default_factory=dict)
     remediation: Optional[str] = None
     detected_at: Optional[datetime] = None
-    
+
     # Relationships
     rule_matches: Optional[List[RuleMatchModel]] = None
 

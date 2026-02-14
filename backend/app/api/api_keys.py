@@ -1,6 +1,6 @@
 """API Key Management Endpoints"""
-from flask import request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask import request
+from flask_jwt_extended import jwt_required
 import secrets
 import hashlib
 from datetime import datetime, timezone
@@ -14,9 +14,11 @@ from ..utils.auth import get_current_user_id
 
 logger = logging.getLogger('threatforge.api_keys')
 
+
 def hash_key(key: str) -> str:
     """SHA-256 hash of the API key."""
     return hashlib.sha256(key.encode()).hexdigest()
+
 
 @api_bp.route('/api-keys', methods=['POST'])
 @jwt_required()
@@ -46,7 +48,7 @@ def create_api_key():
             'created_at': datetime.now(timezone.utc).isoformat(),
             'last_used_at': None
         }
-        
+
         supabase.table('api_keys').insert(new_key).execute()
 
         # Log action
@@ -77,7 +79,7 @@ def list_api_keys():
     try:
         res = supabase.table('api_keys').select('id, label, created_at, last_used_at, is_active')\
             .eq('user_id', user_id).order('created_at', desc=True).execute()
-        
+
         return success_response({'api_keys': res.data})
     except Exception as e:
         logger.error("Failed to list API keys: %s", e)
@@ -93,12 +95,12 @@ def revoke_api_key(key_id):
         # Verify ownership
         count_res = supabase.table('api_keys').select('id', count='exact', head=True)\
             .eq('id', key_id).eq('user_id', user_id).execute()
-        
+
         if not count_res.count:
-             return error_response('API key not found', 404)
+            return error_response('API key not found', 404)
 
         supabase.table('api_keys').delete().eq('id', key_id).execute()
-        
+
         # Log action
         supabase.table('activity_logs').insert({
             'user_id': user_id,

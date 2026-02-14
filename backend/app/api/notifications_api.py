@@ -1,6 +1,6 @@
 """Notifications API — Preferences, history, push subscription, test"""
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 from datetime import datetime, timezone
 import logging
 
@@ -16,8 +16,8 @@ logger = logging.getLogger('threatforge.notifications_api')
 
 notifications_bp = Blueprint('notifications', __name__)
 
-
 # ── Preferences ──────────────────────────────────
+
 
 @notifications_bp.route('/notifications/preferences', methods=['GET'])
 @jwt_required()
@@ -75,8 +75,8 @@ def update_notification_prefs():
         logger.error("Failed to update preferences: %s", e)
         return jsonify({'error': 'Internal server error'}), 500
 
-
 # ── Notification History ─────────────────────────
+
 
 @notifications_bp.route('/notifications', methods=['GET'])
 @jwt_required()
@@ -156,8 +156,8 @@ def mark_all_read():
         logger.error("Failed to mark all read: %s", e)
         return jsonify({'error': 'Internal server error'}), 500
 
-
 # ── Push Subscription ────────────────────────────
+
 
 @notifications_bp.route('/notifications/push/subscribe', methods=['POST'])
 @jwt_required()
@@ -204,8 +204,8 @@ def push_unsubscribe():
         logger.error("Failed to unsubscribe push: %s", e)
         return jsonify({'error': 'Internal server error'}), 500
 
-
 # ── Test & Weekly Digest ─────────────────────────
+
 
 @notifications_bp.route('/notifications/test', methods=['POST'])
 @jwt_required()

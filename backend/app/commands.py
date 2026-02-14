@@ -6,15 +6,16 @@ from flask.cli import with_appcontext
 from werkzeug.security import generate_password_hash
 from .supabase_client import supabase
 
+
 @click.command('seed-db')
 @with_appcontext
 def seed_db_command():
     """Populate database with sample data for development."""
     print("🌱 Seeding database...")
-    
+
     # 1. Get or Create Test User
     user_id = None
-    
+
     # First, check if ANY user exists to use as a fallback (to avoid rate limits on generic "admin" accounts)
     try:
         existing_users = supabase.table('profiles').select('id, email').limit(1).execute()
@@ -30,7 +31,7 @@ def seed_db_command():
         # No user found, try to create one (with random email to avoid collision/limits if possible)
         random_suffix = str(uuid.uuid4())[:8]
         email = f"admin_{random_suffix}@threatforge.local"
-        
+
         try:
             print(f"   Attempting to create Auth user: {email}")
             auth_res = supabase.auth.sign_up({
@@ -42,11 +43,11 @@ def seed_db_command():
                     }
                 }
             })
-            
+
             if auth_res.user:
                 user_id = auth_res.user.id
                 print(f"   Auth user created: {user_id}")
-                
+
                 # Upsert profile
                 supabase.table('profiles').upsert({
                     'id': user_id,
@@ -58,7 +59,7 @@ def seed_db_command():
                 }).execute()
             else:
                 print("   ⚠️ Auth signup returned no user.")
-        
+
         except Exception as e:
             print(f"   ⚠️ Could not create user via Auth API: {e}")
 
@@ -71,12 +72,12 @@ def seed_db_command():
     all_findings = []
     statuses = ['completed', 'completed', 'completed', 'failed', 'running']
     types = ['full', 'quick', 'full', 'full', 'quick']
-    
+
     for i in range(5):
         scan_id = str(uuid.uuid4())
         created_at = datetime.now(timezone.utc) - timedelta(days=i, hours=2)
         status = statuses[i]
-        
+
         scans.append({
             'id': scan_id,
             'user_id': user_id,
@@ -88,7 +89,7 @@ def seed_db_command():
             'created_at': created_at.isoformat(),
             'completed_at': (created_at + timedelta(minutes=1)).isoformat() if status == 'completed' else None
         })
-        
+
         # Seed Findings for completed scans
         if status == 'completed' and i % 2 == 0:
             all_findings.extend(get_sample_findings(scan_id))
@@ -111,11 +112,12 @@ def seed_db_command():
     for log in logs:
         log['user_id'] = user_id
         log['ip_address'] = '127.0.0.1'
-    
+
     supabase.table('activity_logs').insert(logs).execute()
     print(f"   Seeded {len(logs)} activity logs")
-    
+
     print("✅ Database seeding complete!")
+
 
 def get_sample_findings(scan_id):
     """Helper to get sample findings for a scan."""

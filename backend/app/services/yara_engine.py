@@ -1,7 +1,7 @@
 """YARA Rule Engine Service"""
-import os
+
 import re
-import tempfile
+
 from typing import List, Dict, Any
 
 try:

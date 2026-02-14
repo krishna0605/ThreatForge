@@ -5,6 +5,7 @@ import logging
 
 logger = logging.getLogger('threatforge.validation')
 
+
 def validate_json(schema_model: type[BaseModel]):
     """
     Decorator to validate JSON request body against a Pydantic model.
@@ -16,16 +17,16 @@ def validate_json(schema_model: type[BaseModel]):
                 # Force=True to parse JSON even if Content-Type is missing/wrong
                 # Silent=True to return None instead of error if parsing fails
                 json_data = request.get_json(force=True, silent=True)
-                
+
                 if json_data is None:
                     return jsonify({'error': 'Request body must be JSON'}), 400
-                
+
                 # Validate
                 validated_data = schema_model(**json_data)
-                
+
                 # Attach to request context
                 request.validated_data = validated_data
-                
+
             except ValidationError as e:
                 # Format Pydantic errors nicely
                 errors = []

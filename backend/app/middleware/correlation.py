@@ -1,9 +1,10 @@
 import uuid
 from flask import request, g
 import structlog
-from opentelemetry import trace, context
+from opentelemetry import trace
 
 logger = structlog.get_logger()
+
 
 def register_correlation_middleware(app):
     @app.before_request
@@ -11,7 +12,7 @@ def register_correlation_middleware(app):
         # 1. Extract or Generate Correlation ID
         correlation_id = request.headers.get('X-Correlation-ID') or str(uuid.uuid4())
         g.correlation_id = correlation_id
-        
+
         # 2. Extract Request ID (often from load balancers)
         request_id = request.headers.get('X-Request-ID') or str(uuid.uuid4())
         g.request_id = request_id

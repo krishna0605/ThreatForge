@@ -1,9 +1,10 @@
 """Threat Intelligence Service"""
-import requests
+
 from typing import List, Dict, Any
 import random
 import hashlib
 from datetime import datetime, timezone
+
 
 class ThreatIntelService:
     """Integration with external threat intelligence APIs."""
@@ -20,7 +21,7 @@ class ThreatIntelService:
         """Get aggregated threat intelligence feed."""
         if self.simulated_mode:
             return self._generate_mock_feed(limit)
-        
+
         # Real implementation would aggregate from configured sources
         return []
 
@@ -75,13 +76,13 @@ class ThreatIntelService:
         types = ['IP', 'Domain', 'Hash', 'URL']
         threats = ['Botnet C2', 'Phishing', 'Malware Distribution', 'Scanner']
         for _ in range(limit):
-             feed.append({
-                 'id': hashlib.md5(str(random.random()).encode()).hexdigest(),
-                 'indicator': f'192.168.1.{random.randint(1, 255)}',
-                 'type': random.choice(types),
-                 'threat': random.choice(threats),
-                 'confidence': random.randint(50, 100),
-                 'source': 'Simulated Feed',
-                 'detected_at': datetime.now(timezone.utc).isoformat()
-             })
+            feed.append({
+                'id': hashlib.md5(str(random.random()).encode()).hexdigest(),
+                'indicator': f'192.168.1.{random.randint(1, 255)}',
+                'type': random.choice(types),
+                'threat': random.choice(threats),
+                'confidence': random.randint(50, 100),
+                'source': 'Simulated Feed',
+                'detected_at': datetime.now(timezone.utc).isoformat()
+            })
         return feed

@@ -3,7 +3,7 @@ import uuid
 import secrets
 from datetime import datetime, timezone, timedelta
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 from ..supabase_client import supabase
 from ..utils.auth import get_current_user_id
 
@@ -24,7 +24,7 @@ def create_share_link(scan_id):
     # Check if active share already exists
     existing = supabase.table('shared_reports').select('share_token, expires_at') \
         .eq('scan_id', scan_id).eq('is_active', True).execute()
-    
+
     if existing.data:
         token = existing.data[0]['share_token']
         # Determine frontend URL from request origin

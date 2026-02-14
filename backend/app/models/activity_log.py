@@ -2,6 +2,7 @@
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
 
+
 @dataclass
 class ActivityLog:
     id: str

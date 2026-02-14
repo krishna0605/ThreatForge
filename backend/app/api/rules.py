@@ -3,13 +3,13 @@ from datetime import datetime, timezone
 import uuid
 import os
 import glob
-from flask import request, jsonify, current_app
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask import request, jsonify
+from flask_jwt_extended import jwt_required
 import logging
 
 from . import api_bp
 from ..supabase_client import supabase
-from ..models.yara_rule import YaraRule
+
 from ..services.yara_engine import YaraEngine
 from ..utils.auth import get_current_user_id
 from ..utils.validation import validate_json
@@ -26,6 +26,8 @@ CATEGORY_MAP = {
     'suspicious': 'custom',
     'packer': 'malware',
 }
+
+
 @api_bp.route('/rules', methods=['GET'])
 @jwt_required()
 def list_rules():
@@ -123,15 +125,15 @@ def create_rule():
 def update_rule(rule_id):
     """Update a YARA rule."""
     user_id = get_current_user_id()
-    
+
     # Check ownership
     try:
         rule_res = supabase.table('yara_rules').select('*').eq('id', rule_id).single().execute()
     except Exception:
         return jsonify({'error': 'Rule not found'}), 404
     if not rule_res.data:
-         return jsonify({'error': 'Rule not found'}), 404
-    
+        return jsonify({'error': 'Rule not found'}), 404
+
     rule = rule_res.data
     # Check if built-in
     if rule.get('is_builtin'):
@@ -141,7 +143,7 @@ def update_rule(rule_id):
         return jsonify({'error': 'Rule not owned by you'}), 403
 
     data = request.validated_data
-    
+
     updates = {'updated_at': datetime.now(timezone.utc).isoformat()}
 
     if data.name:
@@ -171,15 +173,15 @@ def update_rule(rule_id):
 def delete_rule(rule_id):
     """Delete a YARA rule."""
     user_id = get_current_user_id()
-    
+
     # Check ownership
     try:
         rule_res = supabase.table('yara_rules').select('*').eq('id', rule_id).single().execute()
     except Exception:
         return jsonify({'error': 'Rule not found'}), 404
     if not rule_res.data:
-         return jsonify({'error': 'Rule not found'}), 404
-    
+        return jsonify({'error': 'Rule not found'}), 404
+
     rule = rule_res.data
     if rule.get('is_builtin'):
         return jsonify({'error': 'Cannot delete builtin rules'}), 403
@@ -211,7 +213,8 @@ def test_rule(rule_id):
         return jsonify({'error': 'No test file provided'}), 400
 
     file = request.files['file']
-    import tempfile, os
+    import tempfile
+    import os
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix='_test')
     file.save(tmp.name)
     tmp.close()

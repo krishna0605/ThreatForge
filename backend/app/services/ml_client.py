@@ -21,10 +21,10 @@ class MLClient:
     def predict_file(self, file_path: str) -> Dict[str, Any]:
         """
         Send file to ML service for analysis.
-        
+
         Args:
             file_path: Path to the file to analyze.
-            
+
         Returns:
             Dict containing 'score', 'label', and 'features'.
         """
@@ -37,7 +37,7 @@ class MLClient:
                     headers=self._get_headers(),
                     timeout=60
                 )
-                
+
             response.raise_for_status()
             return response.json()
         except requests.RequestException as e:

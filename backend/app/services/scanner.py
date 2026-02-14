@@ -3,14 +3,14 @@ import os
 import time
 import requests
 from typing import Dict, Any, List
-from datetime import datetime, timezone
-import logging
 
-logger = logging.getLogger(__name__)
+import logging
 
 from .file_analyzer import FileAnalyzer
 from .yara_engine import YaraEngine
 from .ml_client import MLClient
+
+logger = logging.getLogger(__name__)
 
 
 class ScanOrchestrator:
@@ -59,7 +59,8 @@ class ScanOrchestrator:
                     'description': f'File has entropy of {entropy}/8.0, suggesting packed or encrypted content.',
                     'confidence': min(entropy / 8.0, 1.0),
                     'details': {'entropy': entropy, 'threshold': 7.5},
-                    'remediation': 'Investigate if the file is packed with UPX or similar. High entropy alone is not malicious.',
+                    'remediation': 'Investigate if the file is packed '
+                    'with UPX or similar. High entropy alone is not malicious.',
                 })
         else:
             # Still calculate for metadata but don't flag
@@ -77,7 +78,10 @@ class ScanOrchestrator:
                             'finding_type': 'pe_header',
                             'severity': 'high',
                             'title': f'Suspicious PE section: {section["name"]}',
-                            'description': f'Section {section["name"]} has entropy {section["entropy"]}, likely packed.',
+                            'description': (
+                                f'Section {section["name"]} has entropy '
+                                f'{section["entropy"]}, likely packed.'
+                            ),
                             'confidence': 0.75,
                             'details': {'section': section},
                             'remediation': 'Unpack the executable and re-analyze.',
@@ -215,10 +219,14 @@ class ScanOrchestrator:
                         'finding_type': 'steganography',
                         'severity': 'high' if confidence > 0.8 else 'medium',
                         'title': 'Hidden data detected in image',
-                        'description': f'Steganographic analysis detected hidden data with {confidence*100:.0f}% confidence.',
+                        'description': (
+                            f'Steganographic analysis detected hidden data '
+                            f'with {confidence*100:.0f}% confidence.'
+                        ),
                         'confidence': confidence,
                         'details': {'stego_analysis': result},
-                        'remediation': 'Extract and analyze the hidden payload. The image may be used for data exfiltration.',
+                        'remediation': 'Extract and analyze the hidden payload. '
+                        'The image may be used for data exfiltration.',
                     })
                 return result
             else:
@@ -254,7 +262,8 @@ class ScanOrchestrator:
                         'description': f'Anomalous traffic patterns found. Score: {result.get("anomaly_score", 0):.2f}',
                         'confidence': min(abs(result.get('anomaly_score', 0)) / 10, 1.0),
                         'details': {'network_analysis': result},
-                        'remediation': 'Investigate the flagged network flows for potential C2 communication or data exfiltration.',
+                        'remediation': 'Investigate the flagged network flows '
+                        'for potential C2 communication or data exfiltration.',
                     })
                 # Flag suspicious DNS queries
                 suspicious_dns = result.get('suspicious_dns', [])
@@ -263,7 +272,8 @@ class ScanOrchestrator:
                         'finding_type': 'network',
                         'severity': 'medium',
                         'title': f'Suspicious DNS queries ({len(suspicious_dns)})',
-                        'description': f'PCAP contains queries to potentially malicious domains.',
+                        'description': 'PCAP contains queries to '
+                        'potentially malicious domains.',
                         'confidence': 0.7,
                         'details': {'suspicious_domains': suspicious_dns},
                         'remediation': 'Block the listed domains and investigate affected hosts.',

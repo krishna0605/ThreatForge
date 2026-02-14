@@ -31,7 +31,7 @@ def threat_alert_email(scan_id: str, filename: str, threat_level: str,
                        findings_count: int, top_findings: list) -> dict:
     """Generate threat alert email content."""
     color = '#ef4444' if threat_level == 'critical' else '#f59e0b'
-    
+
     findings_html = ''
     for f in top_findings[:5]:
         sev = f.get('severity', 'unknown')

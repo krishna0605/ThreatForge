@@ -1,6 +1,7 @@
 """Standard API Response Helpers"""
 from flask import jsonify
 
+
 def success_response(data=None, message="Success", status_code=200):
     """
     Return a standardized success response.
@@ -17,7 +18,7 @@ def success_response(data=None, message="Success", status_code=200):
     }
     if data is not None:
         response['data'] = data
-             
+
     return jsonify(response), status_code
 
 
@@ -37,5 +38,5 @@ def error_response(message, status_code=400, details=None):
     }
     if details:
         response['details'] = details
-        
+
     return jsonify(response), status_code

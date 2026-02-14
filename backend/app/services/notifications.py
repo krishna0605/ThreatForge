@@ -1,7 +1,7 @@
 """Notification Service — Sends emails and push notifications based on user preferences."""
 import os
 import json
-import traceback
+
 from datetime import datetime, timezone, timedelta
 
 from ..supabase_client import supabase
@@ -10,27 +10,32 @@ import logging
 
 logger = logging.getLogger('threatforge.notifications')
 
-
 # ── Lazy-loaded config ──
+
+
 def _resend_key():
     return os.environ.get('RESEND_API_KEY', '')
+
 
 def _vapid_private():
     return os.environ.get('VAPID_PRIVATE_KEY', '')
 
+
 def _vapid_public():
     return os.environ.get('VAPID_PUBLIC_KEY', '')
+
 
 def _vapid_email():
     return os.environ.get('VAPID_CLAIMS_EMAIL', 'admin@threatforge.dev')
 
+
 def _from_email():
     return os.environ.get('RESEND_FROM_EMAIL', 'ThreatForge <noreply@threatforge.dev>')
-
 
 # ═══════════════════════════════════════════
 #  INTERNAL HELPERS
 # ═══════════════════════════════════════════
+
 
 def _get_user_prefs(user_id: str) -> dict:
     """Fetch notification preferences (or defaults)."""
@@ -126,10 +131,10 @@ def _send_push(subscription_info: dict, title: str, body: str, url: str = '/dash
         logger.error("Push error: %s", e)
         return False
 
-
 # ═══════════════════════════════════════════
 #  PUBLIC API — Called by scan pipeline
 # ═══════════════════════════════════════════
+
 
 def notify_scan_complete(user_id: str, scan_id: str, filename: str,
                          total_findings: int, threat_level: str,
@@ -173,8 +178,9 @@ def notify_threat_detected(user_id: str, scan_id: str, filename: str,
     if prefs.get('email_threat_alerts'):
         email = _get_user_email(user_id)
         if email:
-            tmpl = threat_alert_email(scan_id, filename, threat_level,
-                                       findings_count, top_findings)
+            tmpl = threat_alert_email(
+                scan_id, filename, threat_level,
+                findings_count, top_findings)
             _send_email(email, tmpl['subject'], tmpl['html'])
 
     # Push
@@ -221,12 +227,13 @@ def send_weekly_digest(user_id: str):
             'created_at': s.get('created_at', ''),
         })
 
-    tmpl = weekly_digest_email(total_scans, total_threats, critical_count,
-                                high_count, recent_scans)
+    tmpl = weekly_digest_email(
+        total_scans, total_threats, critical_count,
+        high_count, recent_scans)
     _send_email(email, tmpl['subject'], tmpl['html'])
     _save_notification(user_id, 'weekly_digest', 'email',
                        f'Weekly Digest: {total_scans} scans, {total_threats} threats',
-                       f'Your security summary for the past 7 days',
+                       'Your security summary for the past 7 days',
                        {'total_scans': total_scans, 'total_threats': total_threats})
 
 

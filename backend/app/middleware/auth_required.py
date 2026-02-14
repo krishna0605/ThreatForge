@@ -11,6 +11,7 @@ from ..utils.auth import get_current_user_id
 
 logger = logging.getLogger('threatforge.auth_middleware')
 
+
 def auth_required(fn):
     """Custom auth decorator supporting both JWT and API key."""
     @wraps(fn)
@@ -20,11 +21,13 @@ def auth_required(fn):
         if api_key:
             try:
                 key_hash = hashlib.sha256(api_key.encode()).hexdigest()
-                res = supabase.table('api_keys').select('user_id, is_active').eq('key_hash', key_hash).limit(1).execute()
-                
+                res = supabase.table('api_keys').select(
+                    'user_id, is_active'
+                ).eq('key_hash', key_hash).limit(1).execute()
+
                 if res.data and res.data[0]['is_active']:
                     g.user_id = res.data[0]['user_id']
-                    
+
                     # Update last used (Async/Fire-and-forget ideally, but sync for safety)
                     try:
                         supabase.table('api_keys').update({
@@ -32,7 +35,7 @@ def auth_required(fn):
                         }).eq('key_hash', key_hash).execute()
                     except Exception as e:
                         logger.warning("Failed to update API key last_used: %s", e)
-                        
+
                     return fn(*args, **kwargs)
                 else:
                     return jsonify({'error': 'Invalid or inactive API Key'}), 401
@@ -49,7 +52,7 @@ def auth_required(fn):
             g.user_id = get_jwt_identity()
             return fn(*args, **kwargs)
         except Exception:
-             return jsonify({'error': 'Authentication required. Provide X-API-Key or Bearer token.'}), 401
+            return jsonify({'error': 'Authentication required. Provide X-API-Key or Bearer token.'}), 401
     return wrapper
 
 
@@ -61,12 +64,12 @@ def admin_required(fn):
         # (This decorator is usually stacked with @auth_required, but if used alone, we need to verify)
         user_id = get_current_user_id()
         if not user_id:
-             # Try to verify JWT just in case it wasn't run
-             try:
-                 verify_jwt_in_request()
-                 user_id = get_jwt_identity()
-             except Exception:
-                 return jsonify({'error': 'Authentication required'}), 401
+            # Try to verify JWT just in case it wasn't run
+            try:
+                verify_jwt_in_request()
+                user_id = get_jwt_identity()
+            except Exception:
+                return jsonify({'error': 'Authentication required'}), 401
 
         try:
             res = supabase.table('profiles').select('role').eq('id', user_id).limit(1).execute()

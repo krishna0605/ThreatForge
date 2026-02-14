@@ -5,11 +5,12 @@ from datetime import datetime
 from pydantic import Field, EmailStr
 from .base import SupabaseModel
 
+
 class UserModel(SupabaseModel):
     id: UUID
     email: EmailStr
     display_name: str
-    password_hash: Optional[str] = None # Optional when reading public profiles
+    password_hash: Optional[str] = None  # Optional when reading public profiles
     role: str = Field(default='analyst')
     avatar_url: Optional[str] = None
     mfa_enabled: bool = Field(default=False)

@@ -1,7 +1,7 @@
 """Dashboard Endpoints — Supabase Implementation"""
 from datetime import datetime, timedelta, timezone
 from flask import jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 import logging
 
 from . import api_bp
@@ -9,6 +9,7 @@ from ..supabase_client import supabase
 from ..utils.auth import get_current_user_id
 
 logger = logging.getLogger('threatforge.dashboard')
+
 
 @api_bp.route('/dashboard/stats', methods=['GET'])
 @jwt_required()
@@ -24,10 +25,10 @@ def get_dashboard_stats():
 
         # 2. Threats Found & Clean Files
         scans_res = supabase.table('scans').select('threats_found').eq('user_id', user_id).execute()
-        
+
         total_threats = 0
         clean_files = 0
-        
+
         if scans_res.data:
             for s in scans_res.data:
                 threats = s.get('threats_found', 0)
@@ -40,7 +41,7 @@ def get_dashboard_stats():
             .eq('severity', 'critical')\
             .eq('scans.user_id', user_id)\
             .execute()
-        
+
         critical_alerts = critical_res.count if critical_res.count is not None else 0
 
         return jsonify({
@@ -63,8 +64,8 @@ def get_dashboard_activity():
 
     try:
         end_date = datetime.now(timezone.utc)
-        start_date = end_date - timedelta(days=6) # 7 days inclusive
-        
+        start_date = end_date - timedelta(days=6)  # 7 days inclusive
+
         # Fetch scans created after start_date
         scans_res = supabase.table('scans').select('created_at')\
             .eq('user_id', user_id)\
@@ -76,23 +77,23 @@ def get_dashboard_activity():
         for i in range(7):
             day = (start_date + timedelta(days=i)).strftime('%Y-%m-%d')
             activity_map[day] = 0
-            
+
         # Aggregate
         if scans_res.data:
             for s in scans_res.data:
                 created_at = s['created_at'][:10]
                 if created_at in activity_map:
                     activity_map[created_at] += 1
-        
+
         # Format for Chart.js
-        labels = [] # Mon, Tue... or dates
+        labels = []  # Mon, Tue... or dates
         data = []
-        
+
         # Sort by date
         sorted_dates = sorted(activity_map.keys())
         for date_str in sorted_dates:
             dt = datetime.strptime(date_str, '%Y-%m-%d')
-            labels.append(dt.strftime('%a')) # Mon, Tue
+            labels.append(dt.strftime('%a'))  # Mon, Tue
             data.append(activity_map[date_str])
 
         return jsonify({
@@ -115,7 +116,7 @@ def get_threat_distribution():
         findings_res = supabase.table('findings').select('finding_type, scans!inner(user_id)')\
             .eq('scans.user_id', user_id)\
             .execute()
-            
+
         dist = {
             'malware': 0,
             'steganography': 0,
@@ -123,7 +124,7 @@ def get_threat_distribution():
             'yara': 0,
             'other': 0
         }
-        
+
         if findings_res.data:
             for f in findings_res.data:
                 ftype = f.get('finding_type', 'other').lower()
@@ -131,15 +132,15 @@ def get_threat_distribution():
                     dist[ftype] += 1
                 else:
                     dist['other'] += 1
-        
+
         labels = ['Malware', 'Steganography', 'Network', 'YARA/Other']
         data = [
-            dist['malware'], 
-            dist['steganography'], 
-            dist['network'], 
+            dist['malware'],
+            dist['steganography'],
+            dist['network'],
             dist['yara'] + dist['other']
         ]
-        
+
         return jsonify({
             'labels': labels,
             'data': data
@@ -184,19 +185,39 @@ def get_security_health():
 
         # Firewall Status
         clean_count = sum(1 for s in (all_scans.data or []) if s.get('status') == 'completed')
-        threats_count = sum(1 for s in (all_scans.data or [])
-                           if s.get('status') == 'completed' and s.get('threats_found', 0) > 0) if all_scans.data else 0
+        threats_count = sum(
+            1 for s in (all_scans.data or [])
+            if s.get('status') == 'completed'
+            and s.get('threats_found', 0) > 0
+        ) if all_scans.data else 0
         if clean_count > 0:
             firewall_val = round(((clean_count - threats_count) / clean_count) * 100)
         else:
             firewall_val = 100
 
-        firewall_subtitle = 'All Clear' if firewall_val >= 90 else 'Optimization Required' if firewall_val >= 50 else 'Action Required'
+        if firewall_val >= 90:
+            firewall_subtitle = 'All Clear'
+        elif firewall_val >= 50:
+            firewall_subtitle = 'Optimization Required'
+        else:
+            firewall_subtitle = 'Action Required'
 
         return jsonify({
-            'network_integrity': {'value': max(0, min(network_val, 100)), 'label': 'Network Integrity', 'subtitle': network_subtitle},
-            'ai_confidence': {'value': max(0, min(ai_val, 100)), 'label': 'AI Model Confidence', 'subtitle': ai_subtitle},
-            'firewall_status': {'value': max(0, min(firewall_val, 100)), 'label': 'Firewall Status', 'subtitle': firewall_subtitle},
+            'network_integrity': {
+                'value': max(0, min(network_val, 100)),
+                'label': 'Network Integrity',
+                'subtitle': network_subtitle
+            },
+            'ai_confidence': {
+                'value': max(0, min(ai_val, 100)),
+                'label': 'AI Model Confidence',
+                'subtitle': ai_subtitle
+            },
+            'firewall_status': {
+                'value': max(0, min(firewall_val, 100)),
+                'label': 'Firewall Status',
+                'subtitle': firewall_subtitle
+            },
         }), 200
 
     except Exception as e:

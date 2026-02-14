@@ -38,9 +38,9 @@ class FileAnalyzer:
         """Extract file metadata using python-magic and os.stat."""
         try:
             import magic  # python-magic-bin
-            
+
             stat = os.stat(file_path)
-            
+
             # Create magic instance for MIME type
             mime = magic.Magic(mime=True)
             mime_type = mime.from_file(file_path)
@@ -145,7 +145,7 @@ class FileAnalyzer:
     def extract_strings(data: bytes, min_length: int = 6) -> Dict[str, Any]:
         """
         Extract ASCII and Unicode strings from file data and identify suspicious patterns.
-        
+
         Returns:
             Dict with all_strings, suspicious_strings, and categorized IOCs.
         """

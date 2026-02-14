@@ -23,8 +23,9 @@ from ..schemas.auth import LoginSchema, SignupSchema, ForgotPasswordSchema, MFAS
 
 logger = logging.getLogger('threatforge.auth')
 
-
 # --- Helper to get user by email ---
+
+
 def get_user_by_email(email: str) -> UserModel | None:
     try:
         response = supabase.table('profiles').select('*').eq('email', email).limit(1).execute()
@@ -36,6 +37,8 @@ def get_user_by_email(email: str) -> UserModel | None:
         return None
 
 # --- Helper to get user by ID ---
+
+
 def get_user_by_id(user_id: str) -> UserModel | None:
     try:
         response = supabase.table('profiles').select('*').eq('id', user_id).limit(1).execute()
@@ -53,7 +56,7 @@ def get_user_by_id(user_id: str) -> UserModel | None:
 def signup():
     """Register a new user."""
     data = request.validated_data
-    
+
     email = data.email.lower()
     password = data.password
     display_name = data.display_name
@@ -74,15 +77,18 @@ def signup():
                 }
             }
         })
-        
-        # If auto-confirm is on, user is created. 
+
+        # If auto-confirm is on, user is created.
         # Check if user is returned
         if not auth_response.user:
-             # Fallback if signup requires email confirmation (dev mode usually disables this)
-             return success_response(message='Signup successful. Please check your email to confirm.', status_code=201)
+            # Fallback if signup requires email confirmation (dev mode usually disables this)
+            return success_response(
+                message='Signup successful. Please check your email to confirm.',
+                status_code=201
+            )
 
         user_id = auth_response.user.id
-        
+
         # We store the password hash in profiles ONLY because we are porting legacy logic.
         # Ideally we rely solely on Supabase Auth login.
         # But to keep 'login' endpoint working as is without frontend changes for now:
@@ -91,13 +97,13 @@ def signup():
              'display_name': display_name or email.split('@')[0],
              'role': 'analyst'
         }
-        
+
         # Profiles trigger might have created the row. Let's update or upsert it.
         supabase.table('profiles').update(profile_update).eq('id', user_id).execute()
-        
+
         # Fetch fresh profile
         user = get_user_by_id(user_id)
-        
+
         # Generate tokens
         access_token = create_access_token(identity=str(user_id))
         refresh_token = create_refresh_token(identity=str(user_id))
@@ -142,7 +148,7 @@ def login():
             "email": email,
             "password": password
         })
-        
+
         if auth_response.user:
             user_id = auth_response.user.id
             user = get_user_by_id(user_id)
@@ -152,13 +158,13 @@ def login():
 
     except Exception:
         # If Supabase Auth fails (e.g. wrong password), it raises exception.
-        # We could implement fallback to check 'password_hash' in profiles table 
+        # We could implement fallback to check 'password_hash' in profiles table
         # for migrated users who passworeds aren't in Supabase Auth yet.
         # For this new setup, we assume new users.
         return error_response('Invalid email or password', 401)
 
     if not user:
-         return error_response('User profile not found', 404)
+        return error_response('User profile not found', 404)
 
     # Check MFA — if enabled, issue a short-lived temp token instead of full tokens.
     # The frontend will then call /auth/mfa/verify-login with the TOTP code.
@@ -218,7 +224,7 @@ def get_me():
     """Get current user profile."""
     user_id = get_current_user_id()
     user = get_user_by_id(user_id)
-    
+
     if not user:
         return error_response('User not found', 404)
 
@@ -238,8 +244,8 @@ def get_me():
 def logout():
     """Invalidate current session."""
     user_id = get_current_user_id()
-    supabase.auth.sign_out() # Sign out from Supabase too
-    
+    supabase.auth.sign_out()  # Sign out from Supabase too
+
     supabase.table('activity_logs').insert({
         'user_id': user_id,
         'action': 'logout',
@@ -251,7 +257,7 @@ def logout():
     if jti:
         from ..services.auth_service import revoke_token
         revoke_token(jti)
-    
+
     return success_response(message='Logged out successfully')
 
 
@@ -271,14 +277,14 @@ def forgot_password():
     """Send password reset email."""
     data = request.validated_data
     email = data.email.lower()
-    
+
     if email:
         try:
-             supabase.auth.reset_password_email(email)
+            supabase.auth.reset_password_email(email)
         except Exception as e:
             logger.error("Reset password error: %s", e)
             return error_response('Failed to send reset email. Please try again or contact support.', 500)
-            
+
     return success_response(message='If an account exists, a password reset email has been sent')
 
 
@@ -314,7 +320,8 @@ def mfa_enroll():
             'secret': secret,
             'qr_uri': provisioning_uri,
             'recovery_codes': recovery_codes,
-        }, message='Scan the QR code with your authenticator app, then verify with a code. Save your recovery codes safely.')
+        }, message='Scan the QR code with your authenticator app, '
+           'then verify with a code. Save your recovery codes safely.')
     except ValueError as e:
         logger.error(f"MFA enrollment failed (config issue): {e}")
         return error_response('MFA enrollment failed: encryption not configured. Contact administrator.', 500)
@@ -362,11 +369,11 @@ def mfa_verify():
 def mfa_verify_login():
     """Verify TOTP code for login (2nd factor)."""
     identity = get_jwt_identity()
-    
+
     # Check if this is a temp token
     if not identity.startswith("mfa_pending:"):
         return error_response('Invalid token type for this endpoint', 403)
-        
+
     user_id = identity.split(":")[1]
     user = get_user_by_id(user_id)
     if not user:
@@ -397,16 +404,18 @@ def mfa_verify_login():
                 # Check recovery codes
                 valid_recovery = False
                 if user.recovery_codes and len(totp_code) > 6:
-                     updated_codes = []
-                     for enc_code in user.recovery_codes:
-                         dec_code = decrypt_data(enc_code)
-                         if dec_code == totp_code:
-                             valid_recovery = True
-                         else:
-                             updated_codes.append(enc_code)
-                     
-                     if valid_recovery:
-                          supabase.table('profiles').update({'recovery_codes': updated_codes}).eq('id', user.id).execute()
+                    updated_codes = []
+                    for enc_code in user.recovery_codes:
+                        dec_code = decrypt_data(enc_code)
+                        if dec_code == totp_code:
+                            valid_recovery = True
+                        else:
+                            updated_codes.append(enc_code)
+
+                    if valid_recovery:
+                        supabase.table('profiles').update(
+                            {'recovery_codes': updated_codes}
+                        ).eq('id', user.id).execute()
 
                 if not valid_recovery:
                     return error_response('Invalid TOTP or recovery code', 401)
@@ -414,7 +423,7 @@ def mfa_verify_login():
     # Convert temp session to full session
     access_token = create_access_token(identity=str(user.id))
     refresh_token = create_refresh_token(identity=str(user.id))
-    
+
     # Log login success
     try:
         supabase.table('activity_logs').insert({
@@ -445,7 +454,7 @@ def mfa_verify_login():
 def google_auth():
     """Exchange Supabase Auth token for Backend JWT."""
     data = request.validated_data
-        
+
     supabase_token = data.access_token
 
     try:
@@ -453,25 +462,25 @@ def google_auth():
         user_response = supabase.auth.get_user(supabase_token)
         if not user_response.user:
             return error_response('Invalid Supabase token', 401)
-            
+
         auth_user = user_response.user
         user_id = auth_user.id
         email = auth_user.email
-        
+
         # Check/Create Profile
         user = get_user_by_id(user_id)
         if not user:
             # First time login with Google -> Create Profile
             display_name = auth_user.user_metadata.get('full_name') or email.split('@')[0]
             avatar_url = auth_user.user_metadata.get('avatar_url') or auth_user.user_metadata.get('picture')
-            
+
             profile_data = {
                 'id': user_id,
                 'email': email,
                 'display_name': display_name,
                 'role': 'analyst',
                 'avatar_url': avatar_url,
-                'mfa_enabled': False # Google controls MFA mostly, but we can enable ours too
+                'mfa_enabled': False  # Google controls MFA mostly, but we can enable ours too
             }
             try:
                 supabase.table('profiles').insert(profile_data).execute()
@@ -481,7 +490,7 @@ def google_auth():
                 # Try fetch again just in case race condition
                 user = get_user_by_id(user_id)
                 if not user:
-                     return error_response('Failed to create user profile', 500)
+                    return error_response('Failed to create user profile', 500)
 
         # Check MFA
         if user.mfa_enabled:
@@ -498,12 +507,11 @@ def google_auth():
         # Generate Backend Tokens
         access_token = create_access_token(identity=str(user.id))
         refresh_token = create_refresh_token(identity=str(user.id))
-        
+
         # Session & Activity Log
         try:
-             # Basic session tracking
-             ua_info = parse_user_agent(request.headers.get('User-Agent', ''))
-             supabase.table('activity_logs').insert({
+            # Basic session tracking
+            supabase.table('activity_logs').insert({
                 'user_id': str(user.id),
                 'action': 'login_google',
                 'ip_address': request.remote_addr

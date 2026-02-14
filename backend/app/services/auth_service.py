@@ -1,21 +1,22 @@
 import logging
 from ..utils.redis_client import get_redis_client
-from flask import current_app
+
 
 logger = logging.getLogger('threatforge.auth_service')
 
-# Standard JWT expiration is usually 15-60 mins for access tokens. 
+# Standard JWT expiration is usually 15-60 mins for access tokens.
 # We should set the redis key expiry slightly longer to be safe.
 # Refresh tokens might last days, so we need to handle that.
 # For simplicity, we'll default to 24 hours if not specified.
-DEFAULT_REVOKE_TTL = 86400 
+DEFAULT_REVOKE_TTL = 86400
+
 
 def revoke_token(jti: str, expires_in: int = None):
     """
     Revoke a JWT by adding its JTI to the blocklist (Redis).
-    
+
     :param jti: The JWT ID to revoke.
-    :param expires_in: Time in seconds until the token expires. 
+    :param expires_in: Time in seconds until the token expires.
                        If None, uses a default safe TTL.
     """
     redis_client = get_redis_client()
@@ -33,6 +34,7 @@ def revoke_token(jti: str, expires_in: int = None):
         logger.info(f"Token {jti} revoked.")
     except Exception as e:
         logger.error(f"Failed to revoke token in Redis: {e}")
+
 
 def is_token_revoked(jti: str) -> bool:
     """
@@ -52,7 +54,7 @@ def is_token_revoked(jti: str) -> bool:
     if redis_client:
         try:
             if redis_client.exists(f"revoked_token:{jti}"):
-                revoked_tokens.add(jti) # Cache in memory
+                revoked_tokens.add(jti)  # Cache in memory
                 return True
         except Exception as e:
             logger.error(f"Failed to check token revocation status in Redis: {e}")
@@ -66,7 +68,7 @@ def is_token_revoked(jti: str) -> bool:
             .eq('token_jti', jti) \
             .limit(1) \
             .execute()
-        
+
         if response.data and response.data[0].get('is_revoked'):
             # It's revoked in DB, so let's cache it
             revoked_tokens.add(jti)

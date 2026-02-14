@@ -4,9 +4,10 @@ import sys
 import structlog
 from structlog.stdlib import LoggerFactory
 
+
 def setup_logging(app):
     """Configure structured logging for the application."""
-    
+
     # 1. Configure Structlog
     structlog.configure(
         processors=[
@@ -31,14 +32,14 @@ def setup_logging(app):
 
     # Add Structlog Processor as a handler for Standard Logging is tricky.
     # The clean way is to use structlog.stdlib.ProcessorFormatter.
-    
+
     # However, for simplicity and effectiveness in Flask:
     # We set the level and let structlog handle the output via its print/stream adapters if we used them directly,
     # but since we used LoggerFactory(), structlog wraps standard logger.
     # To make standard logging output JSON, we need to configure the formatter of the standard handler.
 
     handler = logging.StreamHandler(sys.stdout)
-    
+
     # Use structlog's ProcessorFormatter to format standard logs as JSON
     formatter = structlog.stdlib.ProcessorFormatter(
         processor=structlog.processors.JSONRenderer(),
@@ -51,7 +52,7 @@ def setup_logging(app):
         ]
     )
     handler.setFormatter(formatter)
-    
+
     root_logger.addHandler(handler)
     root_logger.setLevel(logging.INFO)
 
@@ -61,5 +62,5 @@ def setup_logging(app):
 
     # Attach structlog to app
     app.logger = structlog.get_logger()
-    
+
     return app.logger

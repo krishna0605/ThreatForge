@@ -4,6 +4,7 @@ import logging
 
 logger = logging.getLogger('threatforge.auth_utils')
 
+
 def get_current_user_id() -> str:
     """
     Get the authenticated user's ID.
@@ -15,12 +16,12 @@ def get_current_user_id() -> str:
 
     # 2. Check JWT
     try:
-        verify_jwt_in_request(optional=True) # Check if JWT is present, don't crash if not
+        verify_jwt_in_request(optional=True)  # Check if JWT is present, don't crash if not
         identity = get_jwt_identity()
         if identity:
             return identity
     except Exception:
         pass
-    
+
     # 3. Fallback/Error
     return None

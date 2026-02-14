@@ -5,6 +5,7 @@ from werkzeug.exceptions import HTTPException
 
 logger = logging.getLogger('threatforge.error_handler')
 
+
 def register_error_handlers(app):
     """Register error handlers for the Flask app."""
 
@@ -32,11 +33,10 @@ def register_error_handlers(app):
         # Log the full traceback
         tb = traceback.format_exc()
         logger.error(f"Unhandled exception: {e}\n{tb}")
-        
+
         # Return generic 500
         return jsonify({
             "status": "error",
             "message": "An unexpected error occurred. Please try again later.",
             "code": 500
         }), 500
-

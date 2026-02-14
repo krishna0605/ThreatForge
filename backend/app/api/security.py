@@ -1,9 +1,9 @@
 """Security Settings Endpoints — Change Password, Sessions, Preferences, IP Whitelist, Audit Logs"""
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
+from flask_jwt_extended import jwt_required, get_jwt
 from werkzeug.security import generate_password_hash
 from datetime import datetime, timezone
-import uuid
+
 import logging
 
 from ..supabase_client import supabase
@@ -12,17 +12,17 @@ from ..utils.auth import get_current_user_id
 from ..utils.crypto import decrypt_data
 from ..utils.validation import validate_json
 from ..schemas.security import (
-    ChangePasswordSchema, DisableMFASchema, 
+    ChangePasswordSchema, DisableMFASchema,
     UpdatePreferencesSchema, AddIPWhitelistSchema
 )
 
 logger = logging.getLogger('threatforge.security')
 
-
 security_bp = Blueprint('security', __name__)
 
-
 # ─── Helper: parse User-Agent ───────────────────────────────────────
+
+
 def parse_user_agent(ua_string: str) -> dict:
     """Extract browser and OS from User-Agent string."""
     ua = ua_string or ''
@@ -68,8 +68,9 @@ def parse_user_agent(ua_string: str) -> dict:
 
     return {'browser': browser, 'os': os_name}
 
-
 # ─── Helper: log audit event ───────────────────────────────────────
+
+
 def log_audit(user_id: str, action: str, resource_type: str = None,
               resource_id: str = None, details: dict = None, ip: str = None):
     """Write an entry to audit_logs."""
@@ -85,10 +86,11 @@ def log_audit(user_id: str, action: str, resource_type: str = None,
     except Exception as e:
         logger.error("Audit log error: %s", e)
 
-
 # ═══════════════════════════════════════════════════════
 #  CHANGE PASSWORD
 # ═══════════════════════════════════════════════════════
+
+
 @security_bp.route('/auth/change-password', methods=['PUT'])
 @jwt_required()
 @limiter.limit("5/minute")
@@ -139,10 +141,11 @@ def change_password():
         logger.error("Failed to change password: %s", e)
         return jsonify({'error': 'Internal server error'}), 500
 
-
 # ═══════════════════════════════════════════════════════
 #  MFA - DISABLE
 # ═══════════════════════════════════════════════════════
+
+
 @security_bp.route('/auth/mfa/disable', methods=['POST'])
 @jwt_required()
 @validate_json(DisableMFASchema)
@@ -184,10 +187,11 @@ def mfa_disable():
         logger.error("Failed to disable MFA: %s", e)
         return jsonify({'error': 'Internal server error'}), 500
 
-
 # ═══════════════════════════════════════════════════════
 #  ACTIVE SESSIONS
 # ═══════════════════════════════════════════════════════
+
+
 @security_bp.route('/security/sessions', methods=['GET'])
 @jwt_required()
 def get_sessions():
@@ -264,10 +268,11 @@ def revoke_session(session_id):
         logger.error("Failed to revoke session: %s", e)
         return jsonify({'error': 'Internal server error'}), 500
 
-
 # ═══════════════════════════════════════════════════════
 #  SECURITY PREFERENCES
 # ═══════════════════════════════════════════════════════
+
+
 @security_bp.route('/security/preferences', methods=['GET'])
 @jwt_required()
 def get_preferences():
@@ -310,9 +315,9 @@ def update_preferences():
 
     # Pydantic model dump with exclude_unset=True matches original logic
     update_data = data.model_dump(exclude_unset=True)
-    
+
     if not update_data:
-         return jsonify({'message': 'No changes provided'}), 200
+        return jsonify({'message': 'No changes provided'}), 200
 
     update_data['user_id'] = user_id
     update_data['updated_at'] = datetime.now(timezone.utc).isoformat()
@@ -329,10 +334,11 @@ def update_preferences():
         logger.error("Failed to update security preferences: %s", e)
         return jsonify({'error': 'Internal server error'}), 500
 
-
 # ═══════════════════════════════════════════════════════
 #  IP WHITELIST
 # ═══════════════════════════════════════════════════════
+
+
 @security_bp.route('/security/ip-whitelist', methods=['GET'])
 @jwt_required()
 def get_ip_whitelist():
@@ -410,10 +416,11 @@ def remove_ip_whitelist(entry_id):
         logger.error("Failed to remove IP whitelist: %s", e)
         return jsonify({'error': 'Internal server error'}), 500
 
-
 # ═══════════════════════════════════════════════════════
 #  AUDIT LOGS
 # ═══════════════════════════════════════════════════════
+
+
 @security_bp.route('/security/audit-logs', methods=['GET'])
 @jwt_required()
 def get_audit_logs():

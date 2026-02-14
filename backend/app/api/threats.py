@@ -1,6 +1,6 @@
 """Threat Intel & Map Endpoints"""
-from flask import jsonify, request
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask import jsonify
+from flask_jwt_extended import jwt_required
 import logging
 
 from . import api_bp
@@ -17,9 +17,28 @@ def threat_feed():
     # Simulated threat feed for demonstration purposes.
     # To enable live data, configure ABUSEIPDB_KEY and OTX_KEY env vars.
     return jsonify({'threats': [
-        {'id': 'tf-001', 'type': 'malware', 'source': 'AbuseIPDB', 'title': 'Emotet C2 communication detected', 'severity': 'critical', 'timestamp': '2026-02-12T06:30:00Z'},
-        {'id': 'tf-002', 'type': 'phishing', 'source': 'OTX', 'title': 'Credential harvesting campaign targeting finance sector', 'severity': 'high', 'timestamp': '2026-02-12T05:15:00Z'},
-        {'id': 'tf-003', 'type': 'ransomware', 'source': 'AbuseIPDB', 'title': 'LockBit 3.0 variant spreading via RDP', 'severity': 'critical', 'timestamp': '2026-02-12T04:00:00Z'},
+        {
+            'id': 'tf-001', 'type': 'malware',
+            'source': 'AbuseIPDB',
+            'title': 'Emotet C2 communication detected',
+            'severity': 'critical',
+            'timestamp': '2026-02-12T06:30:00Z'
+        },
+        {
+            'id': 'tf-002', 'type': 'phishing',
+            'source': 'OTX',
+            'title': 'Credential harvesting campaign '
+                     'targeting finance sector',
+            'severity': 'high',
+            'timestamp': '2026-02-12T05:15:00Z'
+        },
+        {
+            'id': 'tf-003', 'type': 'ransomware',
+            'source': 'AbuseIPDB',
+            'title': 'LockBit 3.0 variant spreading via RDP',
+            'severity': 'critical',
+            'timestamp': '2026-02-12T04:00:00Z'
+        },
     ]}), 200
 
 
@@ -31,21 +50,52 @@ def threat_map():
 
     try:
         # Try to get real findings with details that may contain geo info
-        findings_res = supabase.table('findings').select('details, severity, scans!inner(user_id)')\
-            .eq('scans.user_id', user_id)\
-            .limit(20)\
-            .execute()
+        findings_res = supabase.table('findings').select(
+            'details, severity, scans!inner(user_id)'
+        ).eq('scans.user_id', user_id).limit(20).execute()
 
         # Build locations from findings + supplement with realistic simulated data
         locations = [
-            {'lat': 55.75, 'lng': 37.62, 'country': 'Russia', 'city': 'Moscow', 'attacks': 0, 'risk': 'high', 'color': '#ef4444'},
-            {'lat': 39.91, 'lng': 116.40, 'country': 'China', 'city': 'Beijing', 'attacks': 0, 'risk': 'high', 'color': '#ef4444'},
-            {'lat': -23.55, 'lng': -46.63, 'country': 'Brazil', 'city': 'São Paulo', 'attacks': 0, 'risk': 'medium', 'color': '#f59e0b'},
-            {'lat': 38.90, 'lng': -77.04, 'country': 'USA', 'city': 'Washington', 'attacks': 0, 'risk': 'low', 'color': '#3b82f6'},
-            {'lat': 51.51, 'lng': -0.13, 'country': 'UK', 'city': 'London', 'attacks': 0, 'risk': 'low', 'color': '#3b82f6'},
-            {'lat': 35.68, 'lng': 139.69, 'country': 'Japan', 'city': 'Tokyo', 'attacks': 0, 'risk': 'low', 'color': '#22c55e'},
-            {'lat': 28.61, 'lng': 77.21, 'country': 'India', 'city': 'New Delhi', 'attacks': 0, 'risk': 'medium', 'color': '#f59e0b'},
-            {'lat': 37.57, 'lng': 126.98, 'country': 'South Korea', 'city': 'Seoul', 'attacks': 0, 'risk': 'medium', 'color': '#f59e0b'},
+            {
+                'lat': 55.75, 'lng': 37.62,
+                'country': 'Russia', 'city': 'Moscow',
+                'attacks': 0, 'risk': 'high', 'color': '#ef4444'
+            },
+            {
+                'lat': 39.91, 'lng': 116.40,
+                'country': 'China', 'city': 'Beijing',
+                'attacks': 0, 'risk': 'high', 'color': '#ef4444'
+            },
+            {
+                'lat': -23.55, 'lng': -46.63,
+                'country': 'Brazil', 'city': 'São Paulo',
+                'attacks': 0, 'risk': 'medium', 'color': '#f59e0b'
+            },
+            {
+                'lat': 38.90, 'lng': -77.04,
+                'country': 'USA', 'city': 'Washington',
+                'attacks': 0, 'risk': 'low', 'color': '#3b82f6'
+            },
+            {
+                'lat': 51.51, 'lng': -0.13,
+                'country': 'UK', 'city': 'London',
+                'attacks': 0, 'risk': 'low', 'color': '#3b82f6'
+            },
+            {
+                'lat': 35.68, 'lng': 139.69,
+                'country': 'Japan', 'city': 'Tokyo',
+                'attacks': 0, 'risk': 'low', 'color': '#22c55e'
+            },
+            {
+                'lat': 28.61, 'lng': 77.21,
+                'country': 'India', 'city': 'New Delhi',
+                'attacks': 0, 'risk': 'medium', 'color': '#f59e0b'
+            },
+            {
+                'lat': 37.57, 'lng': 126.98,
+                'country': 'South Korea', 'city': 'Seoul',
+                'attacks': 0, 'risk': 'medium', 'color': '#f59e0b'
+            },
         ]
 
         # Distribute real findings across locations based on severity
@@ -64,7 +114,9 @@ def threat_map():
 
         # Ensure minimum values for visual interest
         import random as rnd
-        rnd.seed(user_id.__hash__() if isinstance(user_id, str) else 42)
+        seed_val = user_id.__hash__() if isinstance(
+            user_id, str) else 42
+        rnd.seed(seed_val)
         for loc in locations:
             if loc['attacks'] == 0:
                 base = {'high': 800, 'medium': 300, 'low': 100}
@@ -85,9 +137,10 @@ def threat_origins():
 
     try:
         # Get real findings count for user
-        findings_res = supabase.table('findings').select('severity, scans!inner(user_id)', count='exact', head=False)\
-            .eq('scans.user_id', user_id)\
-            .execute()
+        findings_res = supabase.table('findings').select(
+            'severity, scans!inner(user_id)',
+            count='exact', head=False
+        ).eq('scans.user_id', user_id).execute()
 
         total_findings = len(findings_res.data) if findings_res.data else 0
 
@@ -96,11 +149,26 @@ def threat_origins():
         random.seed(42)
 
         origins = [
-            {'country': 'Russia', 'flag': '🇷🇺', 'attacks': 0, 'risk': 'High', 'risk_color': 'red'},
-            {'country': 'China', 'flag': '🇨🇳', 'attacks': 0, 'risk': 'High', 'risk_color': 'red'},
-            {'country': 'Brazil', 'flag': '🇧🇷', 'attacks': 0, 'risk': 'Med', 'risk_color': 'yellow'},
-            {'country': 'USA', 'flag': '🇺🇸', 'attacks': 0, 'risk': 'Low', 'risk_color': 'blue'},
-            {'country': 'India', 'flag': '🇮🇳', 'attacks': 0, 'risk': 'Med', 'risk_color': 'yellow'},
+            {
+                'country': 'Russia', 'flag': '🇷🇺',
+                'attacks': 0, 'risk': 'High', 'risk_color': 'red'
+            },
+            {
+                'country': 'China', 'flag': '🇨🇳',
+                'attacks': 0, 'risk': 'High', 'risk_color': 'red'
+            },
+            {
+                'country': 'Brazil', 'flag': '🇧🇷',
+                'attacks': 0, 'risk': 'Med', 'risk_color': 'yellow'
+            },
+            {
+                'country': 'USA', 'flag': '🇺🇸',
+                'attacks': 0, 'risk': 'Low', 'risk_color': 'blue'
+            },
+            {
+                'country': 'India', 'flag': '🇮🇳',
+                'attacks': 0, 'risk': 'Med', 'risk_color': 'yellow'
+            },
         ]
 
         if total_findings > 0:

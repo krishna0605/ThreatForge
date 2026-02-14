@@ -16,5 +16,6 @@ except ImportError:
     logger.warning("redis package not installed. Token revocation will be in-memory/Supabase only.")
     redis_client = None
 
+
 def get_redis_client():
     return redis_client
