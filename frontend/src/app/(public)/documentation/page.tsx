@@ -156,8 +156,8 @@ export default function DocumentationPage() {
       {/* Background */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute inset-0 bg-grid-pattern bg-grid-pattern-size opacity-40" />
-        <div className="absolute top-[-20%] left-[0%] w-[900px] h-[900px] bg-primary/[0.02] rounded-full blur-[300px]" />
-        <div className="absolute bottom-[-20%] right-[0%] w-[1000px] h-[1000px] bg-secondary/[0.015] rounded-full blur-[350px]" />
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 80% 60% at 10% 20%, rgba(0,143,57,0.03), transparent)" }} />
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 70% 50% at 90% 80%, rgba(0,102,204,0.02), transparent)" }} />
       </div>
       <div className="fixed inset-0 crt-overlay z-50 opacity-15 pointer-events-none" />
 
