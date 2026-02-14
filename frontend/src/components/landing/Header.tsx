@@ -48,6 +48,19 @@ export default function Header() {
         </h1>
       </Link>
 
+      {/* Navigation */}
+      <nav className="hidden md:flex items-center gap-8 font-mono text-sm text-text-muted dark:text-gray-400">
+        <Link href="#" className="hover:text-primary transition-colors duration-300 no-underline tracking-wide">
+          Vision
+        </Link>
+        <Link href="#" className="hover:text-primary transition-colors duration-300 no-underline tracking-wide">
+          About Us
+        </Link>
+        <Link href="#" className="hover:text-primary transition-colors duration-300 no-underline tracking-wide">
+          Documentation
+        </Link>
+      </nav>
+
       {/* Actions */}
       <div className="flex items-center gap-3">
         <ThemeToggle />
