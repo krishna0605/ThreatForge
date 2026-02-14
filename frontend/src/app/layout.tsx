@@ -91,7 +91,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className={`${inter.variable} ${jetbrainsMono.variable} ${shareTechMono.variable} antialiased text-text-main bg-background-light dark:bg-[#0d1117] dark:text-[#e6edf3] transition-colors duration-300 font-sans`}>
+      <body className={`${inter.variable} ${jetbrainsMono.variable} ${shareTechMono.variable} antialiased text-text-main bg-background-light dark:bg-[#0d1117] dark:text-[#e6edf3] font-sans`}>
         <ThemeProvider>
           <AuthProvider>
             {children}
