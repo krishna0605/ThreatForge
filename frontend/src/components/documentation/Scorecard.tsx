@@ -18,11 +18,11 @@ export const Scorecard = () => {
       {scores.map((item, i) => (
         <motion.div
           key={item.category}
-          initial={{ opacity: 0, scale: 0.9 }}
-          whileInView={{ opacity: 1, scale: 1 }}
+          initial={{ opacity: 0, y: 15 }}
+          whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: i * 0.05 }}
-          whileHover={{ y: -5 }}
+          transition={{ duration: 0.45, delay: i * 0.04, ease: "easeOut" }}
+          whileHover={{ y: -4, transition: { duration: 0.2 } }}
           className="glass-panel p-6 border border-gray-100 dark:border-primary/10 hover:border-primary/30 transition-all group overflow-hidden relative"
         >
           {/* Progress bar background */}
@@ -61,10 +61,10 @@ export const Scorecard = () => {
       
       {/* Total Score Card */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        whileInView={{ opacity: 1, scale: 1 }}
+        initial={{ opacity: 0, y: 15 }}
+        whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
-        transition={{ duration: 0.5, delay: 0.4 }}
+        transition={{ duration: 0.45, delay: 0.3, ease: "easeOut" }}
         className="glass-panel p-6 border-2 border-primary/40 bg-primary/5 flex flex-col items-center justify-center text-center overflow-hidden relative"
       >
         <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary/10 rounded-full blur-2xl" />

@@ -42,16 +42,16 @@ export const AnimatedCounter = ({
   return (
     <motion.div
       ref={ref}
-      initial={{ opacity: 0, scale: 0.8 }}
-      whileInView={{ opacity: 1, scale: 1 }}
+      initial={{ opacity: 0, y: 10 }}
+      whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      transition={{ duration: 0.5 }}
-      className="text-center p-4"
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="text-center p-3 overflow-hidden"
     >
-      <div className={`text-3xl md:text-4xl font-display font-bold ${color}`}>
+      <div className={`text-2xl md:text-3xl font-display font-bold ${color} tabular-nums whitespace-nowrap`}>
         {prefix}{display.toFixed(decimals)}{suffix}
       </div>
-      <div className="font-mono text-[10px] text-text-muted dark:text-gray-500 uppercase tracking-[0.2em] mt-2">
+      <div className="font-mono text-[10px] text-text-muted dark:text-gray-500 uppercase tracking-[0.2em] mt-1.5">
         {label}
       </div>
     </motion.div>

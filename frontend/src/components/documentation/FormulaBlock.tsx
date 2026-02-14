@@ -11,10 +11,10 @@ interface FormulaBlockProps {
 export const FormulaBlock = ({ formula, label, description }: FormulaBlockProps) => {
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      whileInView={{ opacity: 1, scale: 1 }}
+      initial={{ opacity: 0, y: 10 }}
+      whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
       className="my-8 glass-panel rounded-xl p-6 border border-primary/10 text-center relative overflow-hidden"
     >
       <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-primary/30 to-transparent" />

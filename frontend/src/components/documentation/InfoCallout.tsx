@@ -53,21 +53,16 @@ export const InfoCallout = ({ type, title, children }: InfoCalloutProps) => {
   const c = config[type];
   return (
     <motion.div
-      initial={{ opacity: 0, x: -15 }}
+      initial={{ opacity: 0, x: -10 }}
       whileInView={{ opacity: 1, x: 0 }}
       viewport={{ once: true }}
-      transition={{ duration: 0.5 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
       className={`my-6 border-l-4 ${c.border} ${c.bg} rounded-r-lg p-5`}
     >
       <div className="flex items-center gap-2 mb-2">
-        <motion.span
-          initial={{ scale: 0.5 }}
-          whileInView={{ scale: 1 }}
-          viewport={{ once: true }}
-          className={`material-icons ${c.iconColor} text-xl`}
-        >
+        <span className={`material-icons ${c.iconColor} text-xl`}>
           {c.icon}
-        </motion.span>
+        </span>
         <h4 className={`font-display font-bold text-sm ${c.text}`}>{title}</h4>
       </div>
       <div className={`text-sm ${c.text} opacity-90 leading-relaxed [&_strong]:font-bold [&_code]:font-mono [&_code]:text-xs [&_code]:bg-black/10 [&_code]:dark:bg-white/10 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded`}>

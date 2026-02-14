@@ -14,19 +14,19 @@ interface DataTableProps {
 export const DataTable = ({ headers, rows, caption, highlightColumn, compact = false }: DataTableProps) => {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 12 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      transition={{ duration: 0.6 }}
-      className="my-8 rounded-xl overflow-hidden border border-gray-200 dark:border-primary/10 shadow-xl"
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="my-8 rounded-xl overflow-hidden border border-gray-200 dark:border-primary/10"
     >
       {caption && (
         <div className="px-5 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
           <span className="font-mono text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em] font-bold">{caption}</span>
           <div className="flex gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-red-500/40" />
-            <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/40" />
-            <div className="w-2.5 h-2.5 rounded-full bg-green-500/40" />
+            <div className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
+            <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60" />
+            <div className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
           </div>
         </div>
       )}
@@ -48,13 +48,9 @@ export const DataTable = ({ headers, rows, caption, highlightColumn, compact = f
           </thead>
           <tbody className="bg-white dark:bg-[#0d1117]">
             {rows.map((row, rowIdx) => (
-              <motion.tr
+              <tr
                 key={rowIdx}
-                initial={{ opacity: 0, x: -10 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.3, delay: rowIdx * 0.03 }}
-                className="border-b border-gray-100 dark:border-gray-800/50 last:border-0 hover:bg-primary/[0.03] dark:hover:bg-primary/[0.05] transition-colors group cursor-default"
+                className="border-b border-gray-100 dark:border-gray-800/50 last:border-0 hover:bg-primary/[0.03] dark:hover:bg-primary/[0.05] transition-colors duration-150"
               >
                 {row.map((cell, cellIdx) => (
                   <td
@@ -66,7 +62,7 @@ export const DataTable = ({ headers, rows, caption, highlightColumn, compact = f
                     {cell}
                   </td>
                 ))}
-              </motion.tr>
+              </tr>
             ))}
           </tbody>
         </table>
