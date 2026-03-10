@@ -38,6 +38,7 @@ services:
       - ML_API_KEY=${ML_API_KEY}
       - CORS_ORIGINS=http://localhost:3000
       - FLASK_CONFIG=production
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
     depends_on:
       ml-service:
         condition: service_healthy
