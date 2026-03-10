@@ -156,7 +156,7 @@
 | **Backend API** | Python 3.11, Flask, SQLAlchemy, Celery, YARA |
 | **ML Service** | scikit-learn, pandas, NumPy, Pillow, joblib |
 | **Database** | Supabase (PostgreSQL), Redis |
-| **Deployment** | Vercel (Frontend), Railway (Backend), Hugging Face (ML) |
+| **Deployment** | Vercel (Frontend), Render (Backend), Hugging Face (ML) |
 
 ---
 
@@ -269,7 +269,7 @@ HF_TOKEN=hf_...
 | Service | Platform | Status |
 |---------|----------|--------|
 | Frontend | Vercel | [![Vercel](https://img.shields.io/badge/Vercel-Deployed-black?logo=vercel&logoColor=white)](https://threat-forge.vercel.app/) |
-| Backend API | Railway | [![Railway](https://img.shields.io/badge/Railway-Deployed-purple?logo=railway&logoColor=white)](https://railway.app/) |
+| Backend API | Render | [![Render](https://img.shields.io/badge/Render-Deployed-46E3B7?logo=render&logoColor=black)](https://render.com/) |
 | ML Service | Hugging Face Spaces | [![HuggingFace](https://img.shields.io/badge/🤗_HuggingFace-Deployed-yellow)](https://huggingface.co/spaces) |
 
 ---
@@ -317,3 +317,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 [🚀 Live Demo](https://threat-forge.vercel.app/) • [🌐 Portfolio](https://creative-engineer.dev/) • [📖 Documentation](https://threatforge.notion.site/)
 
 </div>
+
