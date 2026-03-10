@@ -22,14 +22,15 @@ jobs:
     name: Deploy Frontend to Vercel
     runs-on: ubuntu-latest
     needs: gate
-    defaults:
-      run:
-        working-directory: ./frontend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Prepare Vercel Project Link
+        run: |
+          mkdir -p .vercel
+          cp frontend/.vercel/project.json .vercel/project.json
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
       - name: Pull Vercel Environment
@@ -90,3 +91,4 @@ jobs:
           else
             echo "No Hugging Face changes to deploy"
           fi
+
