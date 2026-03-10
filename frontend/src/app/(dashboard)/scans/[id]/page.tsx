@@ -133,25 +133,34 @@ export default function ScanDetailPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const fetchScan = useCallback(() => {
-    apiGet(`/scans/${scanId}`)
-      .then((data) => setScan(data as ScanDetail))
-      .catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : 'Failed to load scan';
-        setError(msg);
-      })
-      .finally(() => setLoading(false));
+  const fetchScan = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
+
+    try {
+      const data = await apiGet(`/scans/${scanId}`);
+      setScan(data as ScanDetail);
+      setError('');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to load scan';
+      setError(msg);
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
+    }
   }, [scanId]);
 
   useEffect(() => {
-    fetchScan();
+    void fetchScan();
     const subscription = supabase
       .channel(`scan-${scanId}`)
       .on('postgres_changes', {
         event: 'UPDATE', schema: 'public', table: 'scans', filter: `id=eq.${scanId}`,
       }, (payload) => {
         if (payload.new.status === 'completed' || payload.new.status === 'failed') {
-          fetchScan();
+          void fetchScan(true);
         } else {
           setScan((prev) => prev ? { ...prev, status: payload.new.status } : null);
         }
@@ -159,6 +168,18 @@ export default function ScanDetailPage() {
       .subscribe();
     return () => { supabase.removeChannel(subscription); };
   }, [scanId, fetchScan]);
+
+  useEffect(() => {
+    if (scan?.status !== 'running') {
+      return;
+    }
+
+    const pollId = window.setInterval(() => {
+      void fetchScan(true);
+    }, 3000);
+
+    return () => window.clearInterval(pollId);
+  }, [fetchScan, scan?.status]);
 
   const file = scan?.files?.[0];
   const opts = useMemo(() => (scan?.options || {}) as ScanOptions, [scan?.options]);
@@ -1000,3 +1021,4 @@ export default function ScanDetailPage() {
     </div>
   );
 }
+

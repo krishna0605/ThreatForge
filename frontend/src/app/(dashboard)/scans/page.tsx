@@ -27,8 +27,10 @@ export default function ScansPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [error, setError] = useState('');
 
-  const fetchScans = useCallback(async () => {
-    setLoading(true);
+  const fetchScans = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
     try {
       const params = new URLSearchParams({ page: String(page), per_page: '10' });
       if (statusFilter) params.set('status', statusFilter);
@@ -36,21 +38,38 @@ export default function ScansPage() {
       const data = await apiGet(`/scans?${params}`) as any;
       setScans(data.scans);
       setTotalPages(data.pagination.pages);
+      setError('');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load scans';
       setError(msg);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [page, statusFilter]);
 
-  useEffect(() => { fetchScans(); }, [fetchScans]);
+  useEffect(() => {
+    void fetchScans();
+  }, [fetchScans]);
+
+  useEffect(() => {
+    if (!scans.some((scan) => scan.status === 'running')) {
+      return;
+    }
+
+    const pollId = window.setInterval(() => {
+      void fetchScans(true);
+    }, 3000);
+
+    return () => window.clearInterval(pollId);
+  }, [fetchScans, scans]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this scan?')) return;
     try {
       await apiDelete(`/scans/${id}`);
-      fetchScans();
+      void fetchScans(true);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Delete failed';
       setError(msg);
@@ -246,3 +265,4 @@ export default function ScansPage() {
     </div>
   );
 }
+
