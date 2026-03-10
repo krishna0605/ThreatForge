@@ -53,15 +53,10 @@ jobs:
           node-version: 20
       - name: Install Railway CLI
         run: npm install --global @railway/cli
-      - name: Verify Railway Token
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: railway whoami
       - name: Deploy to Railway
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        working-directory: ./backend
-        run: railway up --service backend --detach
+        run: railway up backend --path-as-root --service backend --ci
 
   deploy-ml:
     name: Deploy ML Service to HF Spaces
