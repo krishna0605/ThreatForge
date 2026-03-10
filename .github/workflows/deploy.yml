@@ -74,6 +74,12 @@ jobs:
     needs: gate
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Verify HF service files
+        run: |
+          test -f hf-ml-service/README.md
+          test -f hf-ml-service/Dockerfile
       - name: Push to Hugging Face
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
@@ -91,4 +97,5 @@ jobs:
           else
             echo "No Hugging Face changes to deploy"
           fi
+
 
