@@ -68,7 +68,8 @@ jobs:
           HF_SPACE_NAME: ${{ secrets.HF_SPACE_NAME }}
         run: |
           git clone https://user:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE_NAME} hf-space
-          rsync -av --delete --exclude='.git' ./hf-ml-service/ ./hf-space/
+          rsync -av --delete --exclude='.git' --exclude='*.joblib' ./hf-ml-service/ ./hf-space/
+          find ./hf-space -name '*.joblib' -type f -delete
           cd hf-space
           git config user.email "deploy@threatforge.dev"
           git config user.name "ThreatForge Deploy"

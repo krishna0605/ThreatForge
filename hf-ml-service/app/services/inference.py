@@ -34,14 +34,15 @@ class InferenceService:
     @classmethod
     def load_model(cls, model_name: str):
         if model_name not in cls._models:
-            model_path = ModelRegistry.get_model_path(model_name)
+            model_path = ModelRegistry.ensure_model_available(model_name)
 
             # Fallback for different running contexts
-            if not os.path.exists(model_path):
-                 model_path = os.path.join(os.getcwd(), 'app', 'ml', 'models', f'{model_name}.joblib')
+            if not model_path or not os.path.exists(model_path):
+                fallback_path = os.path.join(os.getcwd(), 'app', 'ml', 'models', f'{model_name}.joblib')
+                model_path = fallback_path if os.path.exists(fallback_path) else model_path
 
             try:
-                if os.path.exists(model_path):
+                if model_path and os.path.exists(model_path):
                     cls._models[model_name] = joblib.load(model_path)
                     MODEL_LOAD_TOTAL.labels(model=model_name, status="success").inc()
                     logger.info("model_loaded", model_name=model_name, path=model_path)

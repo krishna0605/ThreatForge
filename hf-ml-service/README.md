@@ -55,3 +55,6 @@ docker run -p 7860:7860 threatforge-ml
 
 ## Deployment
 This service is designed to be deployed on **Hugging Face Spaces** using the Docker SDK.
+
+## Runtime Model Artifacts
+Model artifacts are downloaded on demand from MODEL_ARTIFACT_BASE_URL when they are not present in the Space repo.
