@@ -66,20 +66,16 @@ class TestPredictEndpoint:
             response = authorized_client.post('/predict', files={'file': ('big.bin', f, 'application/octet-stream')})
         assert response.status_code == 413
 
-    def test_predict_model_fallback(self, authorized_client, sample_exe, monkeypatch):
-        """Verify heuristic-only scoring when model file is missing."""
-        from app.services.inference import InferenceService
-        # Clear cached model
-        original = InferenceService._models.copy()
-        InferenceService._models.clear()
+    def test_predict_model_unavailable_fails_closed(self, authorized_client, sample_exe, monkeypatch):
+        """A missing or invalid required model must never produce a heuristic-only result."""
+        from app.services.inference import ModelUnavailableError
         monkeypatch.setattr(
             'app.services.inference.InferenceService.load_model',
-            lambda cls_or_name, name=None: None
+            lambda _name: (_ for _ in ()).throw(ModelUnavailableError('unavailable')),
         )
         with open(sample_exe, 'rb') as f:
             response = authorized_client.post('/predict', files={'file': ('test.exe', f, 'application/octet-stream')})
-        # Restore
-        InferenceService._models = original
-        assert response.status_code == 200
+        assert response.status_code == 503
         data = response.json()
-        assert 'score' in data  # Should still return a score from heuristics
+        assert data['detail']['code'] == 'model_unavailable'
+        assert 'score' not in data

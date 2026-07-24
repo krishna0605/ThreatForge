@@ -5,6 +5,19 @@ import logging
 
 logger = logging.getLogger('threatforge.crypto')
 
+
+class CryptoError(Exception):
+    """Base class for cryptographic operation failures."""
+
+
+class CryptoConfigurationError(CryptoError):
+    """Raised when encryption configuration is missing or invalid."""
+
+
+class CryptoDecryptionError(CryptoError):
+    """Raised when encrypted data cannot be decrypted."""
+
+
 # Startup check — warn immediately if ENCRYPTION_KEY is missing
 if not os.getenv('ENCRYPTION_KEY'):
     logger.warning(
@@ -17,9 +30,7 @@ def get_cipher_suite():
     key = os.getenv('ENCRYPTION_KEY')
     if not key:
         logger.error("ENCRYPTION_KEY not found in environment variables.")
-        # In production, this should raise an error to prevent insecure startup.
-        # For dev, we might generate one or fail. Let's fail safe.
-        raise ValueError("ENCRYPTION_KEY configuration is missing")
+        raise CryptoConfigurationError("ENCRYPTION_KEY configuration is missing")
 
     # Ensure key is bytes
     if isinstance(key, str):
@@ -27,9 +38,9 @@ def get_cipher_suite():
 
     try:
         return Fernet(key)
-    except Exception as e:
-        logger.error(f"Invalid ENCRYPTION_KEY: {e}")
-        raise
+    except Exception as exc:
+        logger.error("Invalid ENCRYPTION_KEY configuration.")
+        raise CryptoConfigurationError("ENCRYPTION_KEY configuration is invalid") from exc
 
 
 def encrypt_data(data: str) -> str:
@@ -40,22 +51,24 @@ def encrypt_data(data: str) -> str:
         cipher = get_cipher_suite()
         encrypted = cipher.encrypt(data.encode())
         return base64.urlsafe_b64encode(encrypted).decode()
-    except Exception as e:
-        logger.error(f"Encryption failed: {e}")
-        raise
+    except Exception as exc:
+        logger.error("Encryption failed.", extra={'error_type': type(exc).__name__})
+        if isinstance(exc, CryptoError):
+            raise
+        raise CryptoError("Encryption failed") from exc
 
 
 def decrypt_data(token: str) -> str:
     """Decrypt a base64 encoded ciphertext."""
     if not token:
-        return None
+        raise CryptoDecryptionError("Encrypted value is missing")
     try:
         cipher = get_cipher_suite()
         decoded_token = base64.urlsafe_b64decode(token)
         decrypted = cipher.decrypt(decoded_token)
         return decrypted.decode()
-    except Exception as e:
-        logger.error(f"Decryption failed: {e}")
-        # Return None or raise? If decryption fails, we can't verify MFA.
-        # Returning None is safer than crashing, but caller must handle it.
-        return None
+    except Exception as exc:
+        logger.error("Decryption failed.", extra={'error_type': type(exc).__name__})
+        if isinstance(exc, CryptoConfigurationError):
+            raise
+        raise CryptoDecryptionError("Encrypted value could not be decrypted") from exc

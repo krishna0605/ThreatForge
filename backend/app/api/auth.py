@@ -1,11 +1,15 @@
 """Auth Endpoints — Supabase Implementation"""
-from flask import request
+import hmac
+import os
+
+from flask import g, jsonify, request
 from flask_jwt_extended import (
     create_access_token, create_refresh_token,
     jwt_required, get_jwt_identity, get_jwt, decode_token
 )
 from werkzeug.security import generate_password_hash
 import pyotp
+import requests
 import uuid
 import logging
 from datetime import timedelta
@@ -17,11 +21,57 @@ from ..models.user import UserModel
 from .security import parse_user_agent
 from ..utils.responses import success_response, error_response
 from ..utils.auth import get_current_user_id
-from ..utils.crypto import encrypt_data, decrypt_data
+from ..utils.crypto import (
+    CryptoConfigurationError,
+    CryptoDecryptionError,
+    decrypt_data,
+    encrypt_data,
+)
 from ..utils.validation import validate_json
 from ..schemas.auth import LoginSchema, SignupSchema, ForgotPasswordSchema, MFASchema, GoogleAuthSchema
 
 logger = logging.getLogger('threatforge.auth')
+MFA_LOGIN_PURPOSE = 'mfa_login'
+MFA_LOGIN_TOKEN_TTL = timedelta(minutes=5)
+MFA_UNAVAILABLE_MESSAGE = (
+    'MFA verification is temporarily unavailable. Retry shortly or contact support.'
+)
+
+
+def create_mfa_login_token(user_id: str) -> str:
+    """Create a short-lived token that can only complete an MFA login."""
+    return create_access_token(
+        identity=str(user_id),
+        expires_delta=MFA_LOGIN_TOKEN_TTL,
+        additional_claims={'purpose': MFA_LOGIN_PURPOSE},
+    )
+
+
+def record_mfa_unavailable(user_id: str, reason: str) -> None:
+    """Record an MFA operational failure without logging secret material."""
+    correlation_id = getattr(g, 'correlation_id', None)
+    logger.error(
+        "mfa_verification_unavailable user_id=%s correlation_id=%s reason=%s",
+        user_id,
+        correlation_id,
+        reason,
+    )
+    try:
+        supabase.table('activity_logs').insert({
+            'user_id': str(user_id),
+            'action': 'mfa_verification_unavailable',
+            'metadata': {
+                'failure_category': reason,
+                'correlation_id': correlation_id,
+            },
+            'ip_address': request.remote_addr,
+        }).execute()
+    except Exception as exc:
+        logger.error(
+            "mfa_verification_unavailable_audit_failed user_id=%s error_type=%s",
+            user_id,
+            type(exc).__name__,
+        )
 
 # --- Helper to get user by email ---
 
@@ -169,10 +219,7 @@ def login():
     # Check MFA — if enabled, issue a short-lived temp token instead of full tokens.
     # The frontend will then call /auth/mfa/verify-login with the TOTP code.
     if user.mfa_enabled:
-        temp_token = create_access_token(
-            identity=f"mfa_pending:{user.id}",
-            expires_delta=timedelta(minutes=5)
-        )
+        temp_token = create_mfa_login_token(user.id)
         return success_response({
             'mfa_required': True,
             'temp_token': temp_token,
@@ -322,7 +369,7 @@ def mfa_enroll():
             'recovery_codes': recovery_codes,
         }, message='Scan the QR code with your authenticator app, '
            'then verify with a code. Save your recovery codes safely.')
-    except ValueError as e:
+    except CryptoConfigurationError as e:
         logger.error(f"MFA enrollment failed (config issue): {e}")
         return error_response('MFA enrollment failed: encryption not configured. Contact administrator.', 500)
     except Exception as e:
@@ -335,6 +382,7 @@ def mfa_enroll():
 @validate_json(MFASchema)
 def mfa_verify():
     """Verify TOTP code and enable MFA."""
+    user_id = 'unknown'
     try:
         user_id = get_current_user_id()
         user = get_user_by_id(user_id)
@@ -349,7 +397,8 @@ def mfa_verify():
 
         secret = decrypt_data(user.mfa_secret)
         if not secret:
-            return error_response('MFA secret unavailable. Please re-enroll.', 500)
+            record_mfa_unavailable(user.id, 'secret_decryption_empty')
+            return error_response(MFA_UNAVAILABLE_MESSAGE, 503)
 
         totp = pyotp.TOTP(secret)
         if not totp.verify(totp_code):
@@ -358,23 +407,27 @@ def mfa_verify():
         supabase.table('profiles').update({'mfa_enabled': True}).eq('id', str(user_id)).execute()
 
         return success_response(message='MFA enabled successfully')
+    except (CryptoConfigurationError, CryptoDecryptionError):
+        record_mfa_unavailable(user_id, 'secret_decryption_failed')
+        return error_response(MFA_UNAVAILABLE_MESSAGE, 503)
     except Exception as e:
         logger.error(f"MFA verify failed: {e}")
         return error_response('MFA verification failed. Please try again.', 500)
 
 
 @api_bp.route('/auth/mfa/verify-login', methods=['POST'])
+@limiter.limit("10/minute")
 @jwt_required()
 @validate_json(MFASchema)
 def mfa_verify_login():
     """Verify TOTP code for login (2nd factor)."""
+    claims = get_jwt()
     identity = get_jwt_identity()
 
-    # Check if this is a temp token
-    if not identity.startswith("mfa_pending:"):
+    if claims.get('purpose') != MFA_LOGIN_PURPOSE:
         return error_response('Invalid token type for this endpoint', 403)
 
-    user_id = identity.split(":")[1]
+    user_id = str(identity)
     user = get_user_by_id(user_id)
     if not user:
         return error_response('User not found', 404)
@@ -383,42 +436,43 @@ def mfa_verify_login():
     totp_code = data.totp_code
 
     if not user.mfa_secret:
-        # No secret stored — auto-reset and issue full tokens
-        logger.warning(f"MFA verify-login: no secret for user {user.id}. Auto-resetting MFA.")
-        supabase.table('profiles').update({
-            'mfa_enabled': False, 'mfa_secret': None, 'recovery_codes': None
-        }).eq('id', str(user.id)).execute()
-        # Fall through to issue tokens below
-    else:
+        record_mfa_unavailable(user.id, 'secret_missing')
+        return error_response(MFA_UNAVAILABLE_MESSAGE, 503)
+
+    try:
         secret = decrypt_data(user.mfa_secret)
-        if not secret:
-            # Decryption failed — auto-reset and issue full tokens
-            logger.error(f"MFA verify-login: decrypt failed for user {user.id}. Auto-resetting MFA.")
-            supabase.table('profiles').update({
-                'mfa_enabled': False, 'mfa_secret': None, 'recovery_codes': None
-            }).eq('id', str(user.id)).execute()
-            # Fall through to issue tokens below
-        else:
-            totp = pyotp.TOTP(secret)
-            if not totp.verify(totp_code):
-                # Check recovery codes
-                valid_recovery = False
-                if user.recovery_codes and len(totp_code) > 6:
-                    updated_codes = []
-                    for enc_code in user.recovery_codes:
-                        dec_code = decrypt_data(enc_code)
-                        if dec_code == totp_code:
-                            valid_recovery = True
-                        else:
-                            updated_codes.append(enc_code)
+    except (CryptoConfigurationError, CryptoDecryptionError):
+        record_mfa_unavailable(user.id, 'secret_decryption_failed')
+        return error_response(MFA_UNAVAILABLE_MESSAGE, 503)
+    if not secret:
+        record_mfa_unavailable(user.id, 'secret_decryption_empty')
+        return error_response(MFA_UNAVAILABLE_MESSAGE, 503)
 
-                    if valid_recovery:
-                        supabase.table('profiles').update(
-                            {'recovery_codes': updated_codes}
-                        ).eq('id', user.id).execute()
+    totp = pyotp.TOTP(secret)
+    if not totp.verify(totp_code):
+        valid_recovery = False
+        if user.recovery_codes and len(totp_code) > 6:
+            updated_codes = []
+            try:
+                for enc_code in user.recovery_codes:
+                    dec_code = decrypt_data(enc_code)
+                    if not dec_code:
+                        raise CryptoDecryptionError('Recovery code decrypted to an empty value')
+                    if not valid_recovery and hmac.compare_digest(dec_code, totp_code):
+                        valid_recovery = True
+                    else:
+                        updated_codes.append(enc_code)
+            except (CryptoConfigurationError, CryptoDecryptionError):
+                record_mfa_unavailable(user.id, 'recovery_code_decryption_failed')
+                return error_response(MFA_UNAVAILABLE_MESSAGE, 503)
 
-                if not valid_recovery:
-                    return error_response('Invalid TOTP or recovery code', 401)
+            if valid_recovery:
+                supabase.table('profiles').update(
+                    {'recovery_codes': updated_codes}
+                ).eq('id', str(user.id)).execute()
+
+        if not valid_recovery:
+            return error_response('Invalid TOTP or recovery code', 401)
 
     # Convert temp session to full session
     access_token = create_access_token(identity=str(user.id))
@@ -494,11 +548,7 @@ def google_auth():
 
         # Check MFA
         if user.mfa_enabled:
-            # Issue a temporary token with "mfa_pending" scope or similar claim
-            # For simplicity, we can use a short-lived access token with a special identity or claim
-            # But standard flask-jwt-extended claims is better.
-            # Let's use a convention: identity="mfa_pending:<user_id>"
-            temp_token = create_access_token(identity=f"mfa_pending:{user.id}", expires_delta=timedelta(minutes=5))
+            temp_token = create_mfa_login_token(user.id)
             return success_response({
                 'mfa_required': True,
                 'temp_token': temp_token
@@ -537,7 +587,71 @@ def google_auth():
         return error_response('Authentication failed', 401)
 
 
+def backend_readiness():
+    """Return dependency readiness without exposing provider details."""
+    components = {
+        'configuration': 'ready',
+        'database': 'ready',
+        'ml_service': 'ready',
+    }
+
+    if os.getenv('FLASK_CONFIG') == 'production':
+        from validate_env import validate
+
+        if validate():
+            components['configuration'] = 'not_ready'
+
+    supabase_url = os.getenv('SUPABASE_URL', '').rstrip('/')
+    supabase_key = os.getenv('SUPABASE_SERVICE_KEY') or os.getenv('SUPABASE_KEY', '')
+    try:
+        if not supabase_url or not supabase_key:
+            raise RuntimeError('Supabase readiness configuration is unavailable')
+        response = requests.get(
+            f'{supabase_url}/rest/v1/profiles',
+            params={'select': 'id', 'limit': '0'},
+            headers={
+                'apikey': supabase_key,
+                'Authorization': f'Bearer {supabase_key}',
+            },
+            timeout=(1, 2),
+        )
+        response.raise_for_status()
+    except Exception:
+        components['database'] = 'not_ready'
+
+    try:
+        from ..services.ml_client import MLClient
+
+        if not MLClient().health_check():
+            components['ml_service'] = 'not_ready'
+    except Exception:
+        components['ml_service'] = 'not_ready'
+
+    ready = all(value == 'ready' for value in components.values())
+    return {
+        'status': 'ready' if ready else 'not_ready',
+        'service': 'backend-api',
+        'components': components,
+    }, 200 if ready else 503
+
+
+@api_bp.route('/health/live', methods=['GET'])
+def health_live():
+    """Process liveness endpoint with no external dependency checks."""
+    return jsonify({
+        'status': 'alive',
+        'service': 'backend-api',
+    }), 200
+
+
+@api_bp.route('/health/ready', methods=['GET'])
+def health_ready():
+    """Dependency readiness endpoint."""
+    payload, status_code = backend_readiness()
+    return jsonify(payload), status_code
+
+
 @api_bp.route('/health', methods=['GET'])
 def health_check():
-    """Health check endpoint."""
-    return success_response({'status': 'healthy', 'service': 'backend-api'})
+    """Backward-compatible readiness endpoint."""
+    return health_ready()

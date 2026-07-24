@@ -45,10 +45,14 @@ class MLClient:
         except FileNotFoundError:
             return {'error': 'File not found', 'score': 0, 'label': 'error'}
 
-    def health_check(self) -> bool:
+    def health_check(self, timeout: float = 3) -> bool:
         """Check if ML service is healthy."""
         try:
-            response = requests.get(f'{self.base_url}/health', timeout=5)
+            response = requests.get(
+                f'{self.base_url}/health',
+                headers=self._get_headers(),
+                timeout=timeout,
+            )
             return response.status_code == 200
         except requests.RequestException:
             return False

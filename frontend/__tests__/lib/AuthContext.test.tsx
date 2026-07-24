@@ -31,7 +31,8 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { apiPost } from '@/lib/api';
 
 function TestConsumer() {
-  const { user, isAuthenticated, isLoading, login, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, login, logout, verifyMFA } = useAuth();
+  const [mfaResult, setMfaResult] = React.useState('');
   return (
     <div>
       <div data-testid="loading">{String(isLoading)}</div>
@@ -39,6 +40,16 @@ function TestConsumer() {
       <div data-testid="user">{user ? user.email : 'null'}</div>
       <button data-testid="login-btn" onClick={() => login('test@test.com', 'pass')}>Login</button>
       <button data-testid="logout-btn" onClick={logout}>Logout</button>
+      <button
+        data-testid="verify-mfa-btn"
+        onClick={async () => {
+          const result = await verifyMFA('opaque-temp-token', '123456');
+          setMfaResult(result.error || (result.success ? 'success' : 'failed'));
+        }}
+      >
+        Verify MFA
+      </button>
+      <div data-testid="mfa-result">{mfaResult}</div>
     </div>
   );
 }
@@ -170,6 +181,45 @@ describe('AuthProvider', () => {
       expect(screen.getByTestId('authenticated').textContent).toBe('false');
     });
     expect(window.localStorage.removeItem).toHaveBeenCalledWith('access_token');
+  });
+
+  it('shows a stable temporary-unavailability message and preserves the MFA token', async () => {
+    const user = userEvent.setup();
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      json: async () => ({
+        status: 'error',
+        message: 'internal provider details must not be displayed',
+      }),
+    } as Response);
+    window.sessionStorage.setItem('mfa_temp_token', 'opaque-temp-token');
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('loading').textContent).toBe('false');
+    });
+    await user.click(screen.getByTestId('verify-mfa-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('mfa-result').textContent).toBe(
+        'MFA verification is temporarily unavailable. Retry shortly or contact support.'
+      );
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/auth/mfa/verify-login'),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer opaque-temp-token',
+        }),
+      })
+    );
+    expect(window.sessionStorage.getItem('mfa_temp_token')).toBe('opaque-temp-token');
+    fetchMock.mockRestore();
   });
 });
 

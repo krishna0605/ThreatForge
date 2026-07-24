@@ -2,7 +2,7 @@
 import os
 
 
-from flask import Flask
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from .config import Config
@@ -73,6 +73,25 @@ def create_app(config_class=Config):
         jti = jwt_payload.get('jti', '')
         from .services.auth_service import is_token_revoked
         return is_token_revoked(jti)
+
+    @jwt.token_verification_loader
+    def verify_token_purpose(jwt_header, jwt_payload):
+        """Prevent purpose-limited tokens from reaching ordinary API routes."""
+        purpose = jwt_payload.get('purpose')
+        if purpose is None:
+            return True
+        return (
+            purpose == 'mfa_login'
+            and request.method == 'POST'
+            and request.path == '/api/auth/mfa/verify-login'
+        )
+
+    @jwt.token_verification_failed_loader
+    def token_purpose_failed(jwt_header, jwt_payload):
+        return jsonify({
+            'status': 'error',
+            'message': 'Token is not valid for this endpoint',
+        }), 403
 
     # Register blueprints
     from .api import api_bp

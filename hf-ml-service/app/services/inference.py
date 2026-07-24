@@ -2,14 +2,14 @@ import pefile
 import math
 import os
 import joblib
+from importlib.metadata import PackageNotFoundError, version as package_version
 import numpy as np
-import pandas as pd
 import time
 import structlog
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 from app.core.metrics import INFERENCE_LATENCY, INFERENCE_TOTAL, MODEL_LOAD_TOTAL
-from app.services.model_registry import ModelRegistry
+from app.services.model_registry import ModelRegistry, ModelRegistryError
 
 # Fix import to work with both test and run modes
 try:
@@ -20,41 +20,113 @@ except ImportError:
         from features.image_features import ImageFeatureExtractor
         from features.network_features import NetworkFeatureExtractor
     except ImportError:
-         import sys
-         sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
-         from app.features.image_features import ImageFeatureExtractor
-         from app.features.network_features import NetworkFeatureExtractor
+        import sys
+        sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+        from app.features.image_features import ImageFeatureExtractor
+        from app.features.network_features import NetworkFeatureExtractor
 
 logger = structlog.get_logger(__name__)
 
 
+class ModelUnavailableError(RuntimeError):
+    """Raised when a required, verified model cannot be loaded."""
+
+
 class InferenceService:
     _models = {}
+    _load_errors = {}
 
     @classmethod
     def load_model(cls, model_name: str):
-        if model_name not in cls._models:
+        if model_name in cls._models:
+            return cls._models[model_name]
+
+        try:
             model_path = ModelRegistry.ensure_model_available(model_name)
+            model_info = ModelRegistry.get_model_info(model_name)
 
-            # Fallback for different running contexts
-            if not model_path or not os.path.exists(model_path):
-                fallback_path = os.path.join(os.getcwd(), 'app', 'ml', 'models', f'{model_name}.joblib')
-                model_path = fallback_path if os.path.exists(fallback_path) else model_path
+            framework = model_info.get('framework')
+            expected_framework_version = model_info.get('framework_version')
+            if framework and expected_framework_version:
+                try:
+                    installed_version = package_version(framework)
+                except PackageNotFoundError as exc:
+                    raise ModelUnavailableError('Required model framework is not installed') from exc
+                if installed_version != expected_framework_version:
+                    raise ModelUnavailableError('Model framework version does not match the manifest')
 
+            model = joblib.load(model_path)
+            actual_class = f'{model.__class__.__module__}.{model.__class__.__name__}'
+            if actual_class != model_info.get('expected_class'):
+                raise ModelUnavailableError('Loaded model class does not match the manifest')
+
+            expected_features = len(model_info.get('features', []))
+            actual_features = getattr(model, 'n_features_in_', None)
+            if actual_features is not None and int(actual_features) != expected_features:
+                raise ModelUnavailableError('Loaded model feature count does not match the manifest')
+
+            cls._models[model_name] = model
+            cls._load_errors.pop(model_name, None)
+            MODEL_LOAD_TOTAL.labels(model=model_name, status="success").inc()
+            logger.info(
+                "model_loaded",
+                model_name=model_name,
+                model_version=model_info.get('version'),
+            )
+            return model
+        except (ModelRegistryError, ModelUnavailableError, OSError, ValueError) as exc:
+            cls._load_errors[model_name] = type(exc).__name__
+            MODEL_LOAD_TOTAL.labels(model=model_name, status="error").inc()
+            logger.error(
+                "model_load_failed",
+                model_name=model_name,
+                error_type=type(exc).__name__,
+            )
+            raise ModelUnavailableError('Required model is unavailable') from exc
+        except Exception as exc:
+            cls._load_errors[model_name] = type(exc).__name__
+            MODEL_LOAD_TOTAL.labels(model=model_name, status="error").inc()
+            logger.error(
+                "model_load_failed",
+                model_name=model_name,
+                error_type=type(exc).__name__,
+            )
+            raise ModelUnavailableError('Required model is unavailable') from exc
+
+    @classmethod
+    def preload_required_models(cls):
+        """Verify and load every required model, returning safe readiness metadata."""
+        status = {}
+        try:
+            required_models = ModelRegistry.get_required_models()
+        except ModelRegistryError as exc:
+            logger.error('model_preload_failed', error_type=type(exc).__name__)
+            return {'registry': {'ready': False, 'version': None}}
+
+        for model_name, model_info in required_models.items():
             try:
-                if model_path and os.path.exists(model_path):
-                    cls._models[model_name] = joblib.load(model_path)
-                    MODEL_LOAD_TOTAL.labels(model=model_name, status="success").inc()
-                    logger.info("model_loaded", model_name=model_name, path=model_path)
-                else:
-                    MODEL_LOAD_TOTAL.labels(model=model_name, status="not_found").inc()
-                    logger.warning("model_not_found", model_name=model_name, path=model_path)
-                    return None
-            except Exception as e:
-                MODEL_LOAD_TOTAL.labels(model=model_name, status="error").inc()
-                logger.error("model_load_failed", model_name=model_name, error=str(e))
-                return None
-        return cls._models.get(model_name)
+                cls.load_model(model_name)
+                status[model_name] = {
+                    'ready': True,
+                    'version': model_info.get('version'),
+                }
+            except ModelUnavailableError:
+                status[model_name] = {
+                    'ready': False,
+                    'version': model_info.get('version'),
+                }
+        return status
+
+    @classmethod
+    def readiness(cls):
+        """Return safe model readiness metadata without artifact paths or digests."""
+        return cls.preload_required_models()
+
+    @classmethod
+    def reset_model_cache(cls):
+        """Clear loaded model state for controlled tests and worker initialization."""
+        cls._models = {}
+        cls._load_errors = {}
 
     @staticmethod
     def calculate_entropy(data: bytes) -> float:
@@ -121,16 +193,16 @@ class InferenceService:
         ml_verdict = "unknown"
         model_info = ModelRegistry.get_model_info('malware_rf_v1')
 
-        if model:
-            # Features: [entropy, size, suspicious_sections, import_count, suspicious_imports]
-            features = np.array([[entropy, file_size, has_suspicious_sections, import_count, suspicious_import_count]])
-            try:
-                prediction = model.predict(features)[0]
-                proba = model.predict_proba(features)[0][1] # Probability of class 1 (malware)
-                ml_score = round(proba * 100, 2)
-                ml_verdict = "malicious" if prediction == 1 else "safe"
-            except Exception as e:
-                logger.error("inference_error", model="malware", error=str(e))
+        # Features: [entropy, size, suspicious_sections, import_count, suspicious_imports]
+        features = np.array([[entropy, file_size, has_suspicious_sections, import_count, suspicious_import_count]])
+        try:
+            prediction = model.predict(features)[0]
+            proba = model.predict_proba(features)[0][1]  # Probability of class 1 (malware)
+            ml_score = round(proba * 100, 2)
+            ml_verdict = "malicious" if prediction == 1 else "safe"
+        except Exception as exc:
+            logger.error("inference_failed", model_name="malware_rf_v1", error_type=type(exc).__name__)
+            raise ModelUnavailableError("Required model inference failed") from exc
 
         # Heuristic Fallback / Augmentation
         heuristic_score = 0
@@ -153,10 +225,7 @@ class InferenceService:
                 heuristic_score += 10
 
         # Hybrid Score (Weighted)
-        if model:
-            final_score = (ml_score * 0.7) + (heuristic_score * 0.3)
-        else:
-            final_score = heuristic_score
+        final_score = (ml_score * 0.7) + (heuristic_score * 0.3)
 
         final_score = min(max(final_score, 0), 100)
 
@@ -170,9 +239,13 @@ class InferenceService:
         duration = time.time() - start_time
         INFERENCE_LATENCY.labels(model="malware", status="ok").observe(duration)
         INFERENCE_TOTAL.labels(model="malware", result=label).inc()
-        logger.info("malware_analysis_complete",
-                     filename=original_filename, score=round(final_score, 1),
-                     label=label, duration_ms=round(duration * 1000, 1))
+        logger.info(
+            "malware_analysis_complete",
+            filename=original_filename,
+            score=round(final_score, 1),
+            label=label,
+            duration_ms=round(duration * 1000, 1),
+        )
 
         return {
             "filename": original_filename,
@@ -180,8 +253,8 @@ class InferenceService:
             "label": label,
             "reasons": reasons,
             "ml_verdict": ml_verdict,
-            "ml_confidence": ml_score if model else 0,
-            "model_version": model_info.get("version", "heuristic-only"),
+            "ml_confidence": ml_score,
+            "model_version": model_info.get("version"),
             "features": {
                 "entropy": round(entropy, 4),
                 "size": file_size,
@@ -201,28 +274,26 @@ class InferenceService:
 
         # ML Prediction
         model = InferenceService.load_model('stego_lr_v1')
-        ml_score = 0
         model_info = ModelRegistry.get_model_info('stego_lr_v1')
 
-        if model:
-            lsb_var = features.get('lsb_variance', 0)
-            chi_sq = features.get('chi_square', 0)
-            ones_dev = abs(features.get('lsb_ones_ratio', 0.5) - 0.5)
-            suspicion = features.get('lsb_suspicion_score', 0)
+        lsb_var = features.get('lsb_variance', 0)
+        chi_sq = features.get('chi_square', 0)
+        ones_dev = abs(features.get('lsb_ones_ratio', 0.5) - 0.5)
+        suspicion = features.get('lsb_suspicion_score', 0)
 
-            input_feats = np.array([[lsb_var, chi_sq, ones_dev, suspicion]])
-            try:
-                proba = model.predict_proba(input_feats)[0][1]
-                ml_score = proba
-            except Exception as e:
-                logger.error("inference_error", model="stego", error=str(e))
+        input_feats = np.array([[lsb_var, chi_sq, ones_dev, suspicion]])
+        try:
+            proba = model.predict_proba(input_feats)[0][1]
+            _ml_score = proba
+        except Exception as exc:
+            logger.error("inference_failed", model_name="stego_lr_v1", error_type=type(exc).__name__)
+            raise ModelUnavailableError("Required model inference failed") from exc
 
         # Heuristics
         confidence = 0.0
         method = "none"
         indicators = []
 
-        lsb_suspicion = features.get('lsb_suspicion_score', 0)
         chi_square = features.get('chi_square', 0)
         lsb_variance = features.get('lsb_variance', 0)
         ones_ratio = features.get('lsb_ones_ratio', 0.5)
@@ -257,9 +328,13 @@ class InferenceService:
         result_label = "positive" if has_hidden_data else "negative"
         INFERENCE_LATENCY.labels(model="stego", status="ok").observe(duration)
         INFERENCE_TOTAL.labels(model="stego", result=result_label).inc()
-        logger.info("stego_analysis_complete",
-                     filename=original_filename, has_hidden_data=has_hidden_data,
-                     confidence=round(confidence, 3), duration_ms=round(duration * 1000, 1))
+        logger.info(
+            "stego_analysis_complete",
+            filename=original_filename,
+            has_hidden_data=has_hidden_data,
+            confidence=round(confidence, 3),
+            duration_ms=round(duration * 1000, 1),
+        )
 
         return {
             "filename": original_filename,
@@ -267,7 +342,7 @@ class InferenceService:
             "confidence": round(confidence, 3),
             "method": method,
             "indicators": indicators,
-            "model_version": model_info.get("version", "heuristic-only"),
+            "model_version": model_info.get("version"),
             "features": features,
         }
 
@@ -284,18 +359,18 @@ class InferenceService:
         is_anomaly_ml = False
         model_info = ModelRegistry.get_model_info('network_if_v1')
 
-        if model:
-            avg_size = result.get('avg_packet_size', 0)
-            ports = result.get('unique_ports', 0)
-            flows = result.get('unique_flows', 0)
-            heur_score = result.get('anomaly_score', 0)
+        avg_size = result.get('avg_packet_size', 0)
+        ports = result.get('unique_ports', 0)
+        flows = result.get('unique_flows', 0)
+        heur_score = result.get('anomaly_score', 0)
 
-            input_feats = np.array([[avg_size, ports, flows, heur_score]])
-            try:
-                pred = model.predict(input_feats)[0]
-                is_anomaly_ml = (pred == -1)
-            except Exception as e:
-                logger.error("inference_error", model="network", error=str(e))
+        input_feats = np.array([[avg_size, ports, flows, heur_score]])
+        try:
+            pred = model.predict(input_feats)[0]
+            is_anomaly_ml = (pred == -1)
+        except Exception as exc:
+            logger.error("inference_failed", model_name="network_if_v1", error_type=type(exc).__name__)
+            raise ModelUnavailableError("Required model inference failed") from exc
 
         heur_is_anom = result.get('is_anomalous', False)
 
@@ -316,6 +391,6 @@ class InferenceService:
             "is_anomalous": bool(final_is_anom),
             "ml_anomaly_detected": bool(is_anomaly_ml),
             "heuristic_anomaly_detected": bool(heur_is_anom),
-            "model_version": model_info.get("version", "heuristic-only"),
+            "model_version": model_info.get("version"),
             **result,
         }

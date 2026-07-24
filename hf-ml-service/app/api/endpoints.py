@@ -7,8 +7,7 @@ import time
 import structlog
 from app.core.security import get_api_key
 from app.core.config import settings
-from app.services.inference import InferenceService
-from app.services.model_registry import ModelRegistry
+from app.services.inference import InferenceService, ModelUnavailableError
 from app.core.limiter import limiter
 
 logger = structlog.get_logger(__name__)
@@ -21,20 +20,37 @@ def read_root():
     return {"status": "online", "service": "ThreatForge ML Model", "version": "2.0"}
 
 
+def readiness_response():
+    models = InferenceService.readiness()
+    ready = bool(models) and all(info.get("ready") for info in models.values())
+    return JSONResponse(
+        status_code=200 if ready else 503,
+        content={
+            "status": "healthy" if ready else "not_ready",
+            "uptime_seconds": round(time.time() - _start_time, 1),
+            "models": models,
+        },
+    )
+
+
+@router.get("/health/live")
+def health_live():
+    return {
+        "status": "alive",
+        "service": "ThreatForge ML Model",
+        "uptime_seconds": round(time.time() - _start_time, 1),
+    }
+
+
+@router.get("/health/ready")
+def health_ready():
+    return readiness_response()
+
+
 @router.get("/health")
 def health_check():
-    models = ModelRegistry.get_active_models()
-    return {
-        "status": "healthy",
-        "uptime_seconds": round(time.time() - _start_time, 1),
-        "models": {
-            name: {
-                "version": info.get("version"),
-                "algorithm": info.get("algorithm"),
-            }
-            for name, info in models.items()
-        }
-    }
+    """Backward-compatible readiness endpoint used by the backend."""
+    return readiness_response()
 
 
 async def process_upload(file: UploadFile, analysis_func, valid_exts=None):
@@ -69,20 +85,32 @@ async def process_upload(file: UploadFile, analysis_func, valid_exts=None):
         result = analysis_func(temp_filename, file.filename)
 
         if "error" in result:
-             raise HTTPException(status_code=500, detail=result["error"])
+            raise HTTPException(status_code=500, detail="Analysis failed")
 
         return result
 
+    except ModelUnavailableError:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "model_unavailable",
+                "message": "Required model is unavailable",
+            },
+        )
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error("upload_processing_error", filename=file.filename, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as exc:
+        logger.error(
+            "upload_processing_error",
+            filename=file.filename,
+            error_type=type(exc).__name__,
+        )
+        raise HTTPException(status_code=500, detail="Analysis failed")
     finally:
         if temp_filename and os.path.exists(temp_filename):
             try:
                 os.remove(temp_filename)
-            except:
+            except OSError:
                 pass
 
 
@@ -91,11 +119,13 @@ async def process_upload(file: UploadFile, analysis_func, valid_exts=None):
 async def predict_file(request: Request, file: UploadFile = File(...), api_key: str = Depends(get_api_key)):
     return await process_upload(file, InferenceService.analyze_malware)
 
+
 @router.post("/analyze/stego")
 @limiter.limit(settings.Rate_Limit)
 async def analyze_steganography(request: Request, file: UploadFile = File(...), api_key: str = Depends(get_api_key)):
     image_exts = ('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp')
     return await process_upload(file, InferenceService.analyze_steganography, image_exts)
+
 
 @router.post("/analyze/network")
 @limiter.limit(settings.Rate_Limit)

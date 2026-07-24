@@ -1,10 +1,15 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "models": {
     "malware_rf_v1": {
       "filename": "malware_rf_v1.joblib",
       "algorithm": "RandomForest",
       "version": "1.0.0",
+      "sha256": "c9286ab9b668c9aa1f168fb182d58b5fa019c829ab43bd3d4f564b242e90683a",
+      "size_bytes": 48313,
+      "expected_class": "sklearn.ensemble._forest.RandomForestClassifier",
+      "framework": "scikit-learn",
+      "framework_version": "1.8.0",
       "trained_at": "2026-02-13T09:00:00Z",
       "features": ["entropy", "file_size", "suspicious_sections", "import_count", "suspicious_import_count"],
       "metrics": {
@@ -14,12 +19,18 @@
         "recall": 0.87
       },
       "description": "Random Forest classifier for PE malware detection",
-      "active": true
+      "active": true,
+      "required": true
     },
     "stego_lr_v1": {
       "filename": "stego_lr_v1.joblib",
       "algorithm": "LogisticRegression",
       "version": "1.0.0",
+      "sha256": "694f177b1a54e295ffb2fc0adede2b0e1ac5d4ec602a84a65216bbb20887c937",
+      "size_bytes": 863,
+      "expected_class": "sklearn.linear_model._logistic.LogisticRegression",
+      "framework": "scikit-learn",
+      "framework_version": "1.8.0",
       "trained_at": "2026-02-13T09:00:00Z",
       "features": ["lsb_variance", "chi_square", "ones_deviation", "suspicion_score"],
       "metrics": {
@@ -29,19 +40,26 @@
         "recall": 0.84
       },
       "description": "Logistic Regression for LSB steganography detection",
-      "active": true
+      "active": true,
+      "required": true
     },
     "network_if_v1": {
       "filename": "network_if_v1.joblib",
       "algorithm": "IsolationForest",
       "version": "1.0.0",
+      "sha256": "5b6f6815dd4dbc85d0fc502b4f081b0708c6c9d4dedd0b36b35c557584d3fd9c",
+      "size_bytes": 1052201,
+      "expected_class": "sklearn.ensemble._iforest.IsolationForest",
+      "framework": "scikit-learn",
+      "framework_version": "1.8.0",
       "trained_at": "2026-02-13T09:00:00Z",
       "features": ["avg_packet_size", "unique_ports", "unique_flows", "anomaly_score"],
       "metrics": {
         "contamination": 0.1
       },
       "description": "Isolation Forest for network traffic anomaly detection",
-      "active": true
+      "active": true,
+      "required": true
     }
   }
 }

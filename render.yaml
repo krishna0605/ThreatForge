@@ -1,0 +1,70 @@
+services:
+  - type: web
+    name: threatforge-1
+    runtime: docker
+    region: oregon
+    branch: main
+    rootDir: backend
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    autoDeployTrigger: off
+    healthCheckPath: /api/health/live
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: FLASK_CONFIG
+        value: production
+      - key: WEB_CONCURRENCY
+        value: "2"
+      - key: SECRET_KEY
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: ML_SERVICE_URL
+        sync: false
+      - key: ML_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: REDIS_URL
+        sync: false
+
+  - type: web
+    name: threatforge-api-staging
+    runtime: docker
+    region: oregon
+    branch: main
+    rootDir: backend
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    autoDeployTrigger: off
+    healthCheckPath: /api/health/live
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: FLASK_CONFIG
+        value: production
+      - key: WEB_CONCURRENCY
+        value: "2"
+      - key: SECRET_KEY
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: ML_SERVICE_URL
+        sync: false
+      - key: ML_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: REDIS_URL
+        sync: false

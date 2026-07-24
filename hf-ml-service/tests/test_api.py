@@ -11,9 +11,8 @@ def test_read_root():
     assert response.json()["status"] == "online"
 
 def test_health_check():
-    response = client.get("/health")
+    response = client.get("/health/live")
     assert response.status_code == 200
-    # Typo fix from previous attempt: uptime_seconds
     assert "uptime_seconds" in response.json()
 
 def test_predict_no_auth():
@@ -60,7 +59,7 @@ def test_stego_analysis():
 
 def test_health_shows_model_versions():
     """Verify /health returns actual model versions from registry."""
-    response = client.get("/health")
+    response = client.get("/health/ready")
     data = response.json()
     assert "models" in data
     models = data["models"]
@@ -69,7 +68,7 @@ def test_health_shows_model_versions():
     if models:
         first_model = next(iter(models.values()))
         assert "version" in first_model
-        assert "algorithm" in first_model
+        assert "ready" in first_model
 
 
 def test_predict_no_api_key_env(monkeypatch):

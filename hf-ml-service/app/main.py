@@ -9,6 +9,7 @@ import time
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from app.core.limiter import limiter
+from app.services.inference import InferenceService
 
 from opentelemetry import trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -61,6 +62,12 @@ logging.getLogger("uvicorn.access").handlers = [] # Let structlog handle access 
 # For now, let's just set the root logger.
 
 app = FastAPI(title="ThreatForge ML Service", version="2.0")
+
+
+@app.on_event("startup")
+def preload_verified_models():
+    """Verify and load packaged model artifacts in each worker before serving."""
+    app.state.model_readiness = InferenceService.preload_required_models()
 
 # Middleware for Correlation ID and Request ID
 @app.middleware("http")

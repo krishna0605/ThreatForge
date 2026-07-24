@@ -105,33 +105,15 @@ def run_mfa_test():
     
     if data.get('status') == 'success' and data.get('data', {}).get('mfa_required'):
          mfa_required = True
-         temp_token = data['data'].get('access_token') # If your flow returns a temp token here
+         temp_token = data['data'].get('temp_token')
     elif data.get('mfa_required'):
          mfa_required = True
-         temp_token = data.get('access_token')
-    
-    # Wait, looking at auth.py:
-    # return success_response({'mfa_required': True}, message='MFA verification required')
-    # But wait, does login return a temp token in the first step? 
-    # Usually the login endpoint would return { mfa_required: true, mfa_token: ... } or just unauthorized?
-    # Checking auth.py code:
-    # if user.mfa_enabled: ... return success_response({'mfa_required': True}, message='MFA verification required')
-    # Use the /auth/login returns 200 with mfa_required=True. 
-    # BUT how do we identity the user in next step? 
-    # The /verify-login endpoint needs `get_jwt_identity()`. 
-    # Does `auth.py` login return a temp token?
-    # Let's check `auth.py`... 
-    # It returns `success_response({'mfa_required': True})`. It does NOT seem to return a token in the body based on snippet.
-    # Ah, the `mfa_verify_login` uses `@jwt_required()`. 
-    # Checking `auth.py` again... 
-    # `login` does: `access_token = create_access_token(identity=f"mfa_pending:{user.id}", expires_delta=...)` 
-    # then `return success_response({'mfa_required': True, 'access_token': access_token})`.
-    # OK, so we should expect 'access_token'.
+         temp_token = data.get('temp_token')
     
     if mfa_required:
         if not temp_token:
              # Try to find it in data
-             temp_token = data.get('data', {}).get('access_token') or data.get('access_token')
+             temp_token = data.get('data', {}).get('temp_token') or data.get('temp_token')
         
         print(f"   Login required MFA as expected. Got temp token: {temp_token[:10]}...")
     else:

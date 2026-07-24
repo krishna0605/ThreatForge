@@ -1,0 +1,213 @@
+name: Deploy Security Release to Staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact Git SHA to stage
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+concurrency:
+  group: threatforge-staging
+  cancel-in-progress: false
+
+jobs:
+  prepare-model-bundle:
+    name: Verify and Attest Model Bundle
+    runs-on: ubuntu-latest
+    outputs:
+      release_sha: ${{ steps.validate.outputs.release_sha }}
+      bundle_sha256: ${{ steps.bundle.outputs.bundle_sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_sha }}
+          fetch-depth: 0
+      - name: Validate immutable release revision
+        id: validate
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: hf-ml-service/requirements.txt
+      - run: pip install -r hf-ml-service/requirements.txt
+      - name: Verify models and create deterministic source bundle
+        id: bundle
+        env:
+          GITHUB_SHA: ${{ inputs.release_sha }}
+        run: |
+          mkdir release
+          git archive "$GITHUB_SHA:hf-ml-service" | tar -x -C release
+          python hf-ml-service/scripts/verify_model_bundle.py \
+            --output release/release-manifest.json
+          tar --sort=name --mtime='UTC 1970-01-01' \
+            --owner=0 --group=0 --numeric-owner \
+            --use-compress-program='gzip -n' \
+            -cf hf-model-bundle.tar.gz -C release .
+          bundle_sha256="$(sha256sum hf-model-bundle.tar.gz | cut -d' ' -f1)"
+          echo "$bundle_sha256  hf-model-bundle.tar.gz" > hf-model-bundle.sha256
+          echo "bundle_sha256=$bundle_sha256" >> "$GITHUB_OUTPUT"
+      - uses: actions/attest@v4
+        with:
+          subject-path: hf-model-bundle.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hf-model-bundle
+          path: |
+            hf-model-bundle.tar.gz
+            hf-model-bundle.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  deploy-ml-staging:
+    name: Deploy Exact ML Bundle to Staging Space
+    runs-on: ubuntu-latest
+    needs: prepare-model-bundle
+    environment: staging
+    outputs:
+      hf_commit: ${{ steps.push.outputs.hf_commit }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: hf-model-bundle
+          path: staged-artifact
+      - name: Verify and extract bundle
+        run: |
+          cd staged-artifact
+          sha256sum --check hf-model-bundle.sha256
+          mkdir ../release
+          tar -xzf hf-model-bundle.tar.gz -C ../release
+      - name: Push unchanged directory to staging Space
+        id: push
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_NAME: ${{ secrets.HF_STAGING_SPACE_NAME }}
+          RELEASE_SHA: ${{ needs.prepare-model-bundle.outputs.release_sha }}
+        run: |
+          git clone "https://oauth2:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE_NAME}" hf-space
+          rsync -a --delete --exclude='.git' release/ hf-space/
+          cd hf-space
+          git config user.email "deploy@threatforge.dev"
+          git config user.name "ThreatForge Deploy"
+          git add --all
+          if ! git diff --cached --quiet; then
+            git commit -m "Stage ${RELEASE_SHA}"
+            git push origin main
+          fi
+          echo "hf_commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Wait for staging model readiness
+        env:
+          HF_STAGING_URL: ${{ secrets.HF_STAGING_URL }}
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error --max-time 10 "$HF_STAGING_URL/health/ready" > /dev/null; then
+              exit 0
+            fi
+            sleep 10
+          done
+          exit 1
+
+  deploy-backend-staging:
+    name: Deploy Exact Backend Revision to Render Staging
+    runs-on: ubuntu-latest
+    needs: [prepare-model-bundle, deploy-ml-staging]
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-model-bundle.outputs.release_sha }}
+      - name: Deploy and wait for terminal state
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        run: |
+          python .github/scripts/deploy_render.py \
+            --service-id "${{ secrets.RENDER_STAGING_SERVICE_ID }}" \
+            --commit-sha "${{ needs.prepare-model-bundle.outputs.release_sha }}"
+      - name: Verify direct backend readiness
+        run: |
+          curl --fail --silent --show-error --max-time 10 \
+            "${{ secrets.RENDER_STAGING_URL }}/api/health/ready" > /dev/null
+
+  deploy-frontend-staging:
+    name: Deploy Exact Frontend Revision to Vercel Staging
+    runs-on: ubuntu-latest
+    needs: [prepare-model-bundle, deploy-backend-staging]
+    environment: staging
+    outputs:
+      deployment_url: ${{ steps.deploy.outputs.deployment_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-model-bundle.outputs.release_sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Configure staging Vercel project
+        run: |
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' \
+            "${{ secrets.VERCEL_ORG_ID }}" \
+            "${{ secrets.VERCEL_STAGING_PROJECT_ID }}" > .vercel/project.json
+      - run: npm install --global vercel@56.5.0
+      - run: vercel pull --yes --environment=preview --token="${{ secrets.VERCEL_TOKEN }}"
+      - run: vercel build --token="${{ secrets.VERCEL_TOKEN }}"
+      - name: Deploy prebuilt staging output
+        id: deploy
+        run: |
+          deployment_url="$(vercel deploy --prebuilt --token="${{ secrets.VERCEL_TOKEN }}")"
+          echo "deployment_url=$deployment_url" >> "$GITHUB_OUTPUT"
+
+  verify-staging:
+    name: Staging Acceptance Gates
+    runs-on: ubuntu-latest
+    needs:
+      - prepare-model-bundle
+      - deploy-ml-staging
+      - deploy-backend-staging
+      - deploy-frontend-staging
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-model-bundle.outputs.release_sha }}
+      - name: Verify direct and proxied health
+        env:
+          VERCEL_STAGING_URL: ${{ needs.deploy-frontend-staging.outputs.deployment_url }}
+          VERCEL_BYPASS_TOKEN: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          curl --fail --silent --show-error --max-time 10 \
+            "${{ secrets.RENDER_STAGING_URL }}/api/health/ready" > /dev/null
+          curl --fail --silent --show-error --max-time 15 \
+            -H "x-vercel-protection-bypass: $VERCEL_BYPASS_TOKEN" \
+            "$VERCEL_STAGING_URL/api/proxy/health" > /dev/null
+      - name: Login, dashboard, benign scan, and exact cleanup
+        env:
+          SMOKE_TEST_EMAIL: ${{ secrets.STAGING_SMOKE_TEST_EMAIL }}
+          SMOKE_TEST_PASSWORD: ${{ secrets.STAGING_SMOKE_TEST_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          python .github/scripts/smoke_release.py \
+            --base-url "${{ needs.deploy-frontend-staging.outputs.deployment_url }}" \
+            --include-scan
+      - name: Record promotion inputs
+        run: |
+          {
+            echo "### ThreatForge staging security release"
+            echo "- Git SHA: ${{ needs.prepare-model-bundle.outputs.release_sha }}"
+            echo "- Model bundle SHA-256: ${{ needs.prepare-model-bundle.outputs.bundle_sha256 }}"
+            echo "- Hugging Face staging commit: ${{ needs.deploy-ml-staging.outputs.hf_commit }}"
+            echo "- Vercel staging deployment: ${{ needs.deploy-frontend-staging.outputs.deployment_url }}"
+            echo "- Staging workflow run ID: ${{ github.run_id }}"
+          } >> "$GITHUB_STEP_SUMMARY"

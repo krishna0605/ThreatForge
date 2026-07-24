@@ -133,6 +133,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     return { success: true };
                 }
           }
+          if (res.status === 503) {
+              return {
+                  success: false,
+                  error: 'MFA verification is temporarily unavailable. Retry shortly or contact support.',
+              };
+          }
           return { success: false, error: json.message || 'Verification failed' };
 
       } catch {

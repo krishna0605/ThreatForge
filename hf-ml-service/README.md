@@ -57,4 +57,10 @@ docker run -p 7860:7860 threatforge-ml
 This service is designed to be deployed on **Hugging Face Spaces** using the Docker SDK.
 
 ## Runtime Model Artifacts
-Model artifacts are downloaded on demand from MODEL_ARTIFACT_BASE_URL when they are not present in the Space repo.
+Required model artifacts are bundled with the release and described by
+`app/ml/models/model_registry.json`. At startup, the service validates each
+artifact's filename, byte size, SHA-256 digest, estimator type, framework
+version, and feature contract before deserialization. Missing, altered, or
+incompatible required models keep readiness unhealthy and cause the affected
+analysis endpoint to return `503 model_unavailable`; runtime downloads and
+heuristic-only fallback are intentionally disabled.
